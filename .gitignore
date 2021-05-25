@@ -1,0 +1,4 @@
+#Ignoring
+.vscode
+__pycache__
+tokens
