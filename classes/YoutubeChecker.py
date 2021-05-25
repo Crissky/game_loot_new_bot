@@ -3,6 +3,7 @@ class YoutubeChecker():
         self.API_KEY = YOUTUBE_API_KEY
         self.base_url = "https://www.googleapis.com/youtube/v3/search?key={API_YT}&channelId={CHANNEL_ID}&part=snippet,id&order=date&maxResults={MAX_RESULTS}"
         self.base_video_url = "https://www.youtube.com/watch?v={videoId}"
+        self.list_videos_json = None
 
     def getURL(self, channel_id, max_results=1):
     
@@ -16,26 +17,32 @@ class YoutubeChecker():
 
         return self
 
+    def checkLoadListVideos(self):
+        if(not self.list_videos_json):
+            raise Exception("Vídeos não carregados: Use a função 'loadListVideos()' antes desse método para carregar os vídeos.")
+        
     def getVideoURL(self, video_id):
     
         return self.base_video_url.format(videoId=video_id)
     
     def getLastVideoURL(self):
-        if(not self.list_videos_json):
-            raise "Use a função 'loadListVideos()' antes desse método"
+        self.checkLoadListVideos()
         
         video_id = self.getLastVideoID()
         return self.getVideoURL(video_id)
     
+    def getVideoURLList(self):
+        self.checkLoadListVideos()
+        
+        return [self.getVideoURL(video_id) for video_id in self.getVideoIDList()]
+    
     def getVideoList(self):
-        if(not self.list_videos_json):
-            raise "Use a função 'loadListVideos()' antes desse método"
+        self.checkLoadListVideos()
 
         return self.list_videos_json['items']
     
     def getLastVideo(self):
-        if(not self.list_videos_json):
-            raise "Use a função 'loadListVideos()' antes desse método"
+        self.checkLoadListVideos()
         
         return self.list_videos_json['items'][0]
 
@@ -43,18 +50,21 @@ class YoutubeChecker():
         return video_json['id']['videoId']
     
     def getLastVideoID(self):
-        if(not self.list_videos_json):
-            raise "Use a função 'loadListVideos()' antes desse método"
+        self.checkLoadListVideos()
         
         video_json = self.getLastVideo()
         return self.getVideoID(video_json)
     
+    def getVideoIDList(self):
+        self.checkLoadListVideos()
+
+        return [video_json['id']['videoId'] for video_json in self.getVideoList()]
+
     def getVideoTitle(self, video_json):
         return video_json['snippet']['title']
     
     def getLastVideoTitle(self):
-        if(not self.list_videos_json):
-            raise "Use a função 'loadListVideos()' antes desse método"
+        self.checkLoadListVideos()
         
         video_json = self.getLastVideo()
         return self.getVideoTitle(video_json)
@@ -63,8 +73,7 @@ class YoutubeChecker():
         return video_json['snippet']['channelTitle']
     
     def getLastVideoChannelTitle(self):
-        if(not self.list_videos_json):
-            raise "Use a função 'loadListVideos()' antes desse método"
+        self.checkLoadListVideos()
         
         video_json = self.getLastVideo()
         return self.getVideoChannelTitle(video_json)
@@ -73,8 +82,7 @@ class YoutubeChecker():
         return video_json['snippet']['description']
     
     def getLastVideoDescription(self):
-        if(not self.list_videos_json):
-            raise "Use a função 'loadListVideos()' antes desse método"
+        self.checkLoadListVideos()
         
         video_json = self.getLastVideo()
         return self.getVideoDescription(video_json)
@@ -83,8 +91,7 @@ class YoutubeChecker():
         return video_json['snippet']['thumbnails']['high']['url']
     
     def getLastVideoHighThumbURL(self):
-        if(not self.list_videos_json):
-            raise "Use a função 'loadListVideos()' antes desse método"
+        self.checkLoadListVideos()
         
         video_json = self.getLastVideo()
         return self.getVideoHighThumbURL(video_json)
@@ -96,8 +103,11 @@ class YoutubeChecker():
         return thumb_url
     
     def getLastVideoMaxResThumbURL(self):
-        if(not self.list_videos_json):
-            raise "Use a função 'loadListVideos()' antes desse método"
+        self.checkLoadListVideos()
         
         video_json = self.getLastVideo()
         return self.getVideoMaxResThumbURL(video_json)
+    
+    def getVideoMaxResThumbURLByID(self, video_id):
+        
+        return f'https://i.ytimg.com/vi/{video_id}/maxresdefault.jpg'

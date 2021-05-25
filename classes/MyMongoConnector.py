@@ -17,3 +17,6 @@ class MyMongoConnector():
         self.collection = self.database[collection_name]
 
         return self
+
+    def getAllDocuments(self, collection_name='youtubeChannels'):
+        return self.collection.find({})
