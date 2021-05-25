@@ -58,7 +58,7 @@ class YoutubeChecker():
     def getVideoIDList(self):
         self.checkLoadListVideos()
 
-        return [video_json['id']['videoId'] for video_json in self.getVideoList()]
+        return [video_json['id']['videoId'] for video_json in self.getVideoList()  if video_json['id']['kind'] == 'youtube#video']
 
     def getVideoTitle(self, video_json):
         return video_json['snippet']['title']

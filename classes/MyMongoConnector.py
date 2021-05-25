@@ -8,12 +8,12 @@ class MyMongoConnector():
 
         return self
 
-    def choiceDatabase(self, database_name='myFirstDatabase'):
+    def setDatabase(self, database_name='myFirstDatabase'):
         self.database = self.client[database_name]
 
         return self
 
-    def getCollection(self, collection_name='youtubeChannels'):
+    def setCollection(self, collection_name='youtubeChannels'):
         self.collection = self.database[collection_name]
 
         return self
