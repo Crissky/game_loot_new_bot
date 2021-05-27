@@ -1,7 +1,7 @@
 class YoutubeAPIHandler():
     def __init__(self, YOUTUBE_API_KEY):
         self.API_KEY = YOUTUBE_API_KEY
-        self.base_url = "https://www.googleapis.com/youtube/v3/search?key={API_YT}&channelId={CHANNEL_ID}&part=id&order=date&maxResults={MAX_RESULTS}"
+        self.base_url = "https://www.googleapis.com/youtube/v3/search?key={API_YT}&channelId={CHANNEL_ID}&part=id&order=date&maxResults={MAX_RESULTS}&fields=items(id)"
         self.base_video_url = "https://www.youtube.com/watch?v={videoId}"
         self.base_maxresthumb_url = 'https://i.ytimg.com/vi/{videoId}/maxresdefault.jpg'
         self.list_videos_json = None
@@ -27,8 +27,11 @@ class YoutubeAPIHandler():
         
     def getVideoList(self):
         self.checkLoadListVideos()
-
-        return self.list_videos_json['items']
+        
+        video_json_list = self.list_videos_json['items'][:]
+        filtered_list = [item for item in video_json_list if item['id']['kind'] == 'youtube#video']
+        
+        return filtered_list
     
     def getLastVideo(self):
         self.checkLoadListVideos()

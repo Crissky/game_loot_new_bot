@@ -12,3 +12,9 @@ class YoutubeChannelsModel():
         query = {'_id': self.data['_id']}
         newvalues = { "$set": { "video_ids": self.data['video_ids'] } }
         collection.update_one(query, newvalues)
+    
+    def addVideoID(self, video_id):
+        if (video_id not in self.data['video_ids']):
+            self.data['video_ids'].append(video_id)
+        else:
+            print(f'Vídeo id "{video_id}" já está na lista.')

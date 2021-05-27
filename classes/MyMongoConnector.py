@@ -18,5 +18,11 @@ class MyMongoConnector():
 
         return self
 
-    def getAllDocuments(self, collection_name='youtubeChannels'):
+    def getAllDocuments(self):
         return self.collection.find({})
+
+    def getDocumentByID(self, document_id):
+        return self.collection.find_one({'_id': document_id})
+    
+    def dropCollection(self):
+        return self.collection.drop()
