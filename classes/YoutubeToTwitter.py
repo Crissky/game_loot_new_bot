@@ -34,9 +34,14 @@ class YoutubeToTwitter():
         response = requests.get(youtube_channel_ids_url)
         youtube_channel_ids = response.text.splitlines()
 
-        print("youtube_channel_ids:\n", '\n'.join(youtube_channel_ids))
+        # print("youtube_channel_ids:\n", '\n'.join(youtube_channel_ids))
 
         for channel_id in youtube_channel_ids:
+            document = self.mongo_conn.getDocumentByID(channel_id)
+            if document:
+                print(f"Canal {document['name']} já existe no banco de dados com o ID: {document['_id']}.")
+                continue
+
             self.yt_handler.loadListVideos(channel_id, 10)
             video_url = self.yt_handler.getLastVideoURL()
             try:
@@ -61,18 +66,25 @@ class YoutubeToTwitter():
         video_length = youtube.length
         video_author = youtube.author
 
-        if ( video_date < limit_date.date()):
-            print(f'{video_author}: Vídeo {video_url} é muito ANTIGO: {video_date}.')
-        elif ( video_length >= 220 and video_length <= 300):
-            print(f'{video_author}: Vídeo {video_url} é meio LONGO: {video_length} segundos. Enviando somente o link.')
-            self.sendImage(channel_id, video_id, video_author, video_url, youtube)
-        elif (video_length > 300):
-            print(f'{video_author}: Vídeo {video_url} é muito LONGO: {video_length} segundos.')
+        is_sending = False
+        if ( video_date < limit_date.date() ):
+            print(f'\t{video_author}: Vídeo {video_url} é muito ANTIGO: {video_date}.')
+        elif ( video_length >= 140 and video_length <= 300 ):
+            # print(f'\t{video_author}: Vídeo {video_url} é meio LONGO: {video_length} segundos. Enviando somente o link.')
+            # self.sendMedia(channel_id, video_id, video_author, video_url, youtube, 'image')
+            print(f'\t{video_author}: Vídeo {video_url} é meio LONGO: {video_length} segundos. Enviando vídeo cortado.')
+            self.sendMedia(channel_id, video_id, video_author, video_url, youtube, 'cutted')
+            is_sending = True
+        elif ( video_length > 300 ):
+            print(f'\t{video_author}: Vídeo {video_url} é muito LONGO: {video_length} segundos.')
         else:
-            print(f'{video_author}: Vídeo {video_url} Enviando!')
-            self.sendVideo(channel_id, video_id, video_author, video_url, youtube)
+            print(f'\t{video_author}: Vídeo {video_url} Enviando!')
+            self.sendMedia(channel_id, video_id, video_author, video_url, youtube, 'video')
+            is_sending = True
 
         self.updateVideoIDs(channel_id, video_id)
+
+        return is_sending
 
     def updateVideoIDs(self, channel_id, video_id):
         document = self.mongo_conn.getDocumentByID(channel_id)
@@ -84,7 +96,7 @@ class YoutubeToTwitter():
     def sendImage(self, channel_id, video_id, video_author, video_url, youtube):
         image_path = self.saveImage(video_id)
         media_id = self.loadMedia(image_path)
-        message = f'Vídeo novo do {video_author}: {youtube.title}'
+        message = f'Vídeo {video_author}:\n{youtube.title}.'
         message += f'\n\nLink: {video_url}'
         
         self.updateStatus(message, media_id)
@@ -92,11 +104,29 @@ class YoutubeToTwitter():
     def sendVideo(self, channel_id, video_id, video_author, video_url, youtube):
         video_path = self.saveVideo(youtube)
         media_id = self.loadMedia(video_path)
-        message = f'Vídeo novo do {video_author}: {youtube.title}'
+        message = f'Vídeo {video_author}:\n{youtube.title}.'
         message += f'\n\nLink: {video_url}'
 
         self.updateStatus(message, media_id)
-    
+
+    def sendMedia(self, channel_id, video_id, video_author, video_url, youtube, media_type='cutted'):
+        from time import sleep
+
+        if (media_type.lower() == 'video'):
+            media_path = self.saveVideo(youtube)
+        elif (media_type.lower() == 'image'):
+            media_path = self.saveImage(youtube)
+        else:
+            media_path = self.saveCuttedVideo(youtube)
+
+        media_id = self.loadMedia(media_path)
+        message = f'Vídeo {video_author}:\n{youtube.title}.'
+        message += f'\n\nLink: {video_url}'
+        
+        sleep(2)
+        
+        self.updateStatus(message, media_id)
+
     def saveImage(self, video_id):
         import requests
         image_url = self.yt_handler.getVideoMaxResThumbURLByID(video_id)
@@ -113,14 +143,27 @@ class YoutubeToTwitter():
                                custom_filter_functions=[lambda s: (s.resolution == '720p') or (s.resolution == '480p')])\
                                .first()
 
-        print('Baixando vídeo: ', video)
+        print('\tBaixando vídeo: ', video)
         video.download(output_path='download', filename='video')
 
         return 'download/video.mp4'
+    
+    def saveCuttedVideo(self, youtube):
+        print('\tCortando vídeo...')
+        from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
+        video_path = self.saveVideo(youtube)
+        cutted_video_path = 'download/cutted.mp4'
+        mid_time = (youtube.length) // 2
+        start_time = mid_time - 60
+        end_time = mid_time + 60
+        
+        ffmpeg_extract_subclip(video_path, start_time, end_time, targetname=cutted_video_path)
+
+        return cutted_video_path
 
     def loadMedia(self, file_path):
         with open(file_path, 'rb') as file:
-            if ('video.mp4' in file_path):
+            if ('video.mp4' in file_path or 'cutted.mp4' in file_path):
                 response = self.twitter.upload_video(media=file, media_type='video/mp4', media_category='tweet_video', check_progress=True)
             else:
                 response = self.twitter.upload_media(media=file)
@@ -132,18 +175,53 @@ class YoutubeToTwitter():
     def updateStatus(self, message, media_id):
         self.twitter.update_status(status=message, media_ids=media_id)
 
+    def getInWork(self):
+        self.mongo_conn.setCollection('inWork')
+        unsend_dict = self.mongo_conn.collection.find_one()
+        unsend_dict.pop('_id')
+        self.mongo_conn.setCollection()
+        
+        return unsend_dict
+    
+    def saveInWork(self, unsend_dict):
+        self.mongo_conn.setCollection('inWork')
+        self.mongo_conn.dropCollection()
+        self.mongo_conn.collection.insert_one(unsend_dict)
+        self.mongo_conn.setCollection()
+    
+    def dropInWork(self):
+        self.mongo_conn.setCollection('inWork')
+        self.mongo_conn.dropCollection()
+        self.mongo_conn.setCollection()
+    
     def startSend(self, size_list=5, document=None):
         from time import sleep
+        from copy import deepcopy
+
+        unsend_dict = self.getInWork()
         if document:
             unsend_dict = document
+        elif unsend_dict:
+            print(f"Continuando Trabalho inacabado...\n{unsend_dict}")
         else:
-            print('startSend() -> getAllUnsendVideos()')
+            print('startSend() -> getAllUnsendVideos() — VÍDEOS NOVOS:')
             unsend_dict = self.getAllUnsendVideos(size_list)
         
+        unsend_dict_copy = deepcopy(unsend_dict)
+
         print('\nstartSend() -> sendTwitterChooser()')
         for key, value in unsend_dict.items():
             print(key, value)
             for video_id in value:
-                self.sendTwitterChooser(key, video_id)
-                sleep(120)
+                is_spleep = self.sendTwitterChooser(key, video_id)
+                if (is_spleep):
+                    print('\tDormindo...')
+                    sleep(300)
+                else:
+                    sleep(5)
+                
+                unsend_dict_copy[key].remove(video_id)
+                self.saveInWork(unsend_dict_copy)
             print()
+        self.dropInWork()
+        print("\n startSend() Terminou!!!")
