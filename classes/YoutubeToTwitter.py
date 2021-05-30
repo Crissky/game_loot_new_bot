@@ -1,12 +1,18 @@
+# GERENCIA A POSTAGEM DE VÍDEOS NO TWITTER
 class YoutubeToTwitter():
     def __init__(self, mongo_connector, youtube_handler, twitter_connector):
         self.mongo_conn = mongo_connector.setDatabase().setCollection()
         self.yt_handler = youtube_handler
         self.twitter = twitter_connector
     
+    # RETORNA UMA LISTA COM OS ELEMENTOS DA "list1" QUE NÃO EXISTEM NA "list2"
     def filterNotMatches(self, list1, list2):
         return list(set(list1) - set(list2))
 
+    # RETORNA UM DICIONÁRIO ONDE AS CHAVES SÃO OS IDs DOS CANAIS
+    # E O VALOR É UMA LISTA COM OS IDs DOS VÍDEOS ÚLTIMOS QUE AINDA NÃO FORAM ANALISADOS (QUE ESTÃO ARMAZENADOS DO BANCO DE DADOS)
+    # "size_list" DEFINE QUANTOS ELEMENTOS SERÃO PESQUISADOS NA API DO GOOGLES
+    # (A API PODE RETORNAR VÍDEOS OS PLAYLISTS, ONDE AS PLAYLISTS SERÃO DESCARTADAS — AFETANDO O TOTAL DE VÍDEOS RETORNADOS)
     def getAllUnsendVideos(self, size_list=5):
         dict_unsend = dict()
         for document in self.mongo_conn.getAllDocuments():
@@ -20,6 +26,8 @@ class YoutubeToTwitter():
         
         return dict_unsend
     
+    # RETORNA UM DICIONÁRIO COM O ID DO CANAIS E OS IDs DOS VÍDEOS ÚLTIMOS QUE AINDA NÃO FORAM ANALISADOS
+    # MAIS DETALHES EM "getAllUnsendVideos()"
     def getChannelUnsendVideos(self, document, size_list=5):
         self.yt_handler.loadListVideos(document['_id'], size_list)
         video_id_list = self.yt_handler.getVideoIDList()
@@ -42,7 +50,7 @@ class YoutubeToTwitter():
                 print(f"Canal {document['name']} já existe no banco de dados com o ID: {document['_id']}.")
                 continue
 
-            self.yt_handler.loadListVideos(channel_id, 10)
+            self.yt_handler.loadListVideos(channel_id, 50)
             video_url = self.yt_handler.getLastVideoURL()
             try:
                 youtube = YouTube(video_url)
@@ -54,7 +62,12 @@ class YoutubeToTwitter():
                 print('O canal de id:', channel_id, "Não pode ser atualizado com a URL:", video_url)
                 print('Motivo:', e)
     
-
+    # ESCOLHE SE O VÍDEO SERÁ ENVIADO PARA O TWITTER
+    # VÍDEO MAIS ANTIGO QUE O (HOJE MENOS O "limit_date") NÃO SERÁ ENVIADO
+    # VÍDEO COM MINUTAGEM MAIOR QUE ("video_length" > 300) TAMBÉM NÃO SERÁ ENVIADO
+    # VÍDEO COM MINUTAGEM ENTRE ( "video_length" >= 140 and "video_length" <= 300 ) SERÁ ENVIADO COM CORTE DE 2 MINUTOS FEITO NO MEIO DO VÍDEO
+    # VÍDEO COM MENOS DE 2 MINUTOS E 20 SEGUDOS SERÁ ENVIADO COMPLETO
+    # AO FIM DA ESCOLHA, O ID DO VÍDEO É ADICIONADO NO BANCO DE DADOS NA LISTA DO SEU RESPECTIVO CANAL
     def sendTwitterChooser(self, channel_id, video_id):
         from pytube import YouTube
         from datetime import datetime, timedelta
@@ -86,6 +99,7 @@ class YoutubeToTwitter():
 
         return is_sending
 
+    # ADICIONA O ID DO VÍDEO NO BANCO DE DADOS NA LISTA DO SEU RESPECTIVO CANAL
     def updateVideoIDs(self, channel_id, video_id):
         document = self.mongo_conn.getDocumentByID(channel_id)
         
@@ -93,6 +107,7 @@ class YoutubeToTwitter():
         yt_channel_model.addVideoID(video_id)
         yt_channel_model.updateDocumentVideoIDs(mongo_connector.collection)
 
+    # ENVIA UMA IMAGEM PARA O TWITTER
     def sendImage(self, channel_id, video_id, video_author, video_url, youtube):
         image_path = self.saveImage(video_id)
         media_id = self.loadMedia(image_path)
@@ -101,6 +116,7 @@ class YoutubeToTwitter():
         
         self.updateStatus(message, media_id)
 
+    # ENVIA UM VÍDEO PARA O TWITTER
     def sendVideo(self, channel_id, video_id, video_author, video_url, youtube):
         video_path = self.saveVideo(youtube)
         media_id = self.loadMedia(video_path)
@@ -109,6 +125,8 @@ class YoutubeToTwitter():
 
         self.updateStatus(message, media_id)
 
+    # SALVA LOCALMENTE UMA MÍDIA (THUMBNAIL OU VÍDEO) DO YOUTUBE COM BASE NO "media_type" PASSADO
+    # SE O "media_type" FOR DIFERENTE DE  "image" OU "video", O VÍDEO SERÁ CORTADO PARA 2 MINUTOS
     def sendMedia(self, channel_id, video_id, video_author, video_url, youtube, media_type='cutted'):
         from time import sleep
 
@@ -127,6 +145,7 @@ class YoutubeToTwitter():
         
         self.updateStatus(message, media_id)
 
+    # SALVA UMA IMAGEM LOCALMENTE
     def saveImage(self, video_id):
         import requests
         image_url = self.yt_handler.getVideoMaxResThumbURLByID(video_id)
@@ -138,6 +157,7 @@ class YoutubeToTwitter():
         
         return image_path
 
+    # SALVA UM VÍDEO LOCALMENTE
     def saveVideo(self, youtube):
         video = youtube.streams.filter(mime_type='video/mp4',
                                custom_filter_functions=[lambda s: (s.resolution == '720p') or (s.resolution == '480p')])\
@@ -148,6 +168,7 @@ class YoutubeToTwitter():
 
         return 'download/video.mp4'
     
+    # SALVA UM VÍDEO LOCALMENTE, MAS ELE E CORTADO EM 2 MINUTOS (PARTE CENTRAL DO VÍDEO)
     def saveCuttedVideo(self, youtube):
         print('\tCortando vídeo...')
         from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
@@ -161,6 +182,8 @@ class YoutubeToTwitter():
 
         return cutted_video_path
 
+    # CARREGA UMA MÍDIA (IMAGEM OU VÍDEO) NO TWITTER
+    # RETORNA O ID DA MÍDIA CARREGADA
     def loadMedia(self, file_path):
         with open(file_path, 'rb') as file:
             if ('video.mp4' in file_path or 'cutted.mp4' in file_path):
@@ -172,28 +195,44 @@ class YoutubeToTwitter():
 
         return media_id
     
+    # ENVIA UM POST NO TWITTER
+    # "media_id" É O ID DA MÍDIA CARREGADA PELO "loadMedia()"
     def updateStatus(self, message, media_id):
         self.twitter.update_status(status=message, media_ids=media_id)
 
+    # RETORNA O DICIONÁRIO ONDE AS CHAVES SÃO OS IDs DOS CANAIS
+    # E OS VALORES SÃO LISTAS COM DOS IDs DOS VÍDEOS QUE SERÃO USADOS PELO "sendTwitterChooser()"
+    # ESSE DICIONÁRIO É USADO PARA QUE O "startSend()" POSSA CONTINUAR O
+    # ENVIO DOS VÍDEOS CASO ACONTEÇA ALGUM ERRO DURANTE A EXECUÇÃO — ISSO ECONOMIZA CONSULTAS NA API DO GOOGLE
     def getInWork(self):
         self.mongo_conn.setCollection('inWork')
         unsend_dict = self.mongo_conn.collection.find_one()
-        unsend_dict.pop('_id')
+        if unsend_dict:
+            unsend_dict.pop('_id')
+
         self.mongo_conn.setCollection()
         
         return unsend_dict
     
+    # SALVA O PROGRESSO DO "startSend()" NA COLEÇÃO 'inWork'
+    # MAIS DETALHES EM "getInWork()"
     def saveInWork(self, unsend_dict):
         self.mongo_conn.setCollection('inWork')
         self.mongo_conn.dropCollection()
         self.mongo_conn.collection.insert_one(unsend_dict)
         self.mongo_conn.setCollection()
     
+    # EXCLUI A COLEÇÃO 'inWork'
+    # MAIS DETALHES EM "getInWork()"
     def dropInWork(self):
         self.mongo_conn.setCollection('inWork')
         self.mongo_conn.dropCollection()
         self.mongo_conn.setCollection()
     
+    # GERENCIA O ENVIO DE VÍDEOS PARA O TWITTER
+    # A CONSULTA É FEITA PRIMEIRAMENTE NO MONGODB NA COLEÇÃO 'inWork'
+    # CASO NÃO EXISTA VIDEOS PARA SER ENVIADO NO 'inWork'
+    # OS VÍDEOS SERÃO BUSCADOS NA API DO GOOGLE
     def startSend(self, size_list=5, document=None):
         from time import sleep
         from copy import deepcopy
