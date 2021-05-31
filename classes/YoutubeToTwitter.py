@@ -58,6 +58,7 @@ class YoutubeToTwitter():
 
                 yt_channel_model = YoutubeChannelsModel(channel_id, channel_name)
                 self.mongo_conn.collection.insert_one(yt_channel_model.data)
+                print(f'O canal {channel_name}, de id: {channel_id}, foi inserido no banco de dados.')
             except Exception as e:
                 print('O canal de id:', channel_id, "Não pode ser atualizado com a URL:", video_url)
                 print('Motivo:', e)
@@ -238,10 +239,10 @@ class YoutubeToTwitter():
         from copy import deepcopy
 
         unsend_dict = self.getInWork()
-        if document:
-            unsend_dict = document
-        elif unsend_dict:
+        if unsend_dict:
             print(f"Continuando Trabalho inacabado...\n{unsend_dict}")
+        elif document:
+            unsend_dict = self.getChannelUnsendVideos(document, size_list)
         else:
             print('startSend() -> getAllUnsendVideos() — VÍDEOS NOVOS:')
             unsend_dict = self.getAllUnsendVideos(size_list)
