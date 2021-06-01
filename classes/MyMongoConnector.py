@@ -30,6 +30,10 @@ class MyMongoConnector():
     def getDocumentByID(self, document_id):
         return self.collection.find_one({'_id': document_id})
     
+    # RETORNA UM DOCUMENTO DA COLEÇÃO CONECTADA BASEADO NO NOME DO CANAL
+    def getDocumentByName(self, channel_name):
+        return self.collection.find_one({'name': channel_name})
+    
     # EXCLUI A COLEÇÃO CONECTADA
     def dropCollection(self):
         return self.collection.drop()
