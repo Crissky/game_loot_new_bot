@@ -83,9 +83,10 @@ class YoutubeToTwitter():
         is_sending = False
         if ( video_date < limit_date.date() ):
             print(f'\t{video_author}: Vídeo {video_url} é muito ANTIGO: {video_date}.')
+        elif ( video_length == 0 ):
+            print(f'\t{video_author}: Vídeo {video_url} é uma estreia (vídeo ou live). Tem "{video_length}" segundos de duração.')  # Vídeos com tamanho (length) zero são estreias (agendados)
+            return is_sending       # Sai antes da função para não inserir o vídeo no banco de dados. Linha "self.updateVideoIDs(channel_id, video_id)"
         elif ( video_length >= 140 and video_length <= 300 ):
-            # print(f'\t{video_author}: Vídeo {video_url} é meio LONGO: {video_length} segundos. Enviando somente o link.')
-            # self.sendMedia(channel_id, video_id, video_author, video_url, youtube, 'image')
             print(f'\t{video_author}: Vídeo {video_url} é meio LONGO: {video_length} segundos. Enviando vídeo cortado.')
             self.sendMedia(channel_id, video_id, video_author, video_url, youtube, 'cutted')
             is_sending = True
@@ -142,7 +143,7 @@ class YoutubeToTwitter():
         message = f'Vídeo {video_author}:\n{youtube.title}.'
         message += f'\n\nLink: {video_url}'
         
-        sleep(2)
+        sleep(5)
         
         self.updateStatus(message, media_id)
 
@@ -246,6 +247,7 @@ class YoutubeToTwitter():
         else:
             print('startSend() -> getAllUnsendVideos() — VÍDEOS NOVOS:')
             unsend_dict = self.getAllUnsendVideos(size_list)
+            print('\nTotal de vídeos para processar:', sum([len(x) for x in unsend_dict.values()]))
         
         unsend_dict_copy = deepcopy(unsend_dict)
 
@@ -254,14 +256,15 @@ class YoutubeToTwitter():
             print(key, value)
             for video_id in value:
                 is_spleep = self.sendTwitterChooser(key, video_id)
+                unsend_dict_copy[key].remove(video_id)
+                self.saveInWork(unsend_dict_copy)
+                
                 if (is_spleep):
                     print('\tDormindo...')
                     sleep(300)
                 else:
                     sleep(5)
                 
-                unsend_dict_copy[key].remove(video_id)
-                self.saveInWork(unsend_dict_copy)
             print()
         self.dropInWork()
         print("\n startSend() Terminou!!!")
