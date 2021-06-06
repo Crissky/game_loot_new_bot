@@ -12,17 +12,17 @@ class YoutubeToTwitter():
 
 
     # Dormir com contagem regrassiva
-    def sleep(self, time, indent_size=0):
+    def sleep(self, time, indent_size=0, include_text=''):
         from time import sleep
         from sys import stdout
         tabs = '\t' * indent_size
         for remaining in range(time, 0, -1):
             stdout.write("\r")
-            stdout.write(f"{tabs}Dormindo, retomará em {remaining} segundos...")
+            stdout.write(f"{tabs}{include_text} retomará em {remaining} segundos...")
             stdout.flush()
             sleep(1)
 
-        stdout.write(f"\r{tabs}Pronto!\n")
+        stdout.write(f"\r{tabs}{include_text} Pronto!\n")
 
     # RETORNA UM DICIONÁRIO ONDE AS CHAVES SÃO OS IDs DOS CANAIS
     # E O VALOR É UMA LISTA COM OS IDs DOS VÍDEOS ÚLTIMOS QUE AINDA NÃO FORAM ANALISADOS (QUE ESTÃO ARMAZENADOS DO BANCO DE DADOS)
@@ -81,6 +81,29 @@ class YoutubeToTwitter():
                 print('Motivo:', e)
     
 
+    # Retorna uma lista com os IDs dos canais restritos
+    # Canais restritos são aqueles que produzem outros conteúdos além dos trailers de jogos
+    # Exemplo: IGN
+    def getRestrictedChannelIDs(self):
+        self.mongo_conn.setCollection('restrictedChannels')
+        document = self.mongo_conn.collection.find_one()
+        self.mongo_conn.setCollection()
+
+        channel_ids = document['channels']
+    
+        return channel_ids
+    
+    # Retorna True caso o canal não esteja na lista de canais restritos
+    # ou se ele estiver na lista, mas contém a palavra trailer título do vídeo
+    def isRestrictedTrailer(self, channel_id, youtube):
+        channel_ids = self.getRestrictedChannelIDs()
+        my_bool = True
+        if (channel_id in channel_ids):
+            my_bool = ('trailer' in youtube.title.lower())
+        
+        return my_bool
+
+
     # ESCOLHE SE O VÍDEO SERÁ ENVIADO PARA O TWITTER
     # VÍDEO MAIS ANTIGO QUE O (HOJE MENOS O "limit_date") NÃO SERÁ ENVIADO
     # VÍDEO COM MINUTAGEM MAIOR QUE ("video_length" > 300) TAMBÉM NÃO SERÁ ENVIADO
@@ -99,7 +122,9 @@ class YoutubeToTwitter():
         video_author = youtube.author
 
         is_sending = False
-        if ( video_date < limit_date.date() ):
+        if (not self.isRestrictedTrailer(channel_id, youtube)):
+            print(f'\t{video_author}: Vídeo {video_url} Canal está na lista de restritos e não possui a palavra "trailer" no título.')
+        elif ( video_date < limit_date.date() ):
             print(f'\t{video_author}: Vídeo {video_url} é muito ANTIGO: {video_date}.')
         elif ( video_length == 0 ):
             print(f'\t{video_author}: Vídeo {video_url} é uma estreia (vídeo ou live). Tem "{video_length}" segundos de duração.')  # Vídeos com tamanho (length) zero são estreias (agendados)
@@ -163,7 +188,7 @@ class YoutubeToTwitter():
         message = f'Vídeo {video_author}:\n{youtube.title}.'
         message += f'\n\nLink: {video_url}'
         
-        self.sleep(5, 1)
+        self.sleep(10, 1, 'Esperando Twitter processar mídia:')
         
         self.updateStatus(message, media_id)
 
@@ -260,6 +285,9 @@ class YoutubeToTwitter():
         self.mongo_conn.setCollection()
     
 
+    # A partir de um unsend_dict
+    # Retorna o unsend_dict sem o primeiro ID do vídeo que seria processado
+    # Também retorna o ID do canal e o ID do vídeo que foi removido
     def getFirstUnsendDict(self, unsend_dict):
         channel_ids, video_ids = unsend_dict.items()
         channel_id = channel_ids[0]
@@ -268,6 +296,10 @@ class YoutubeToTwitter():
         return unsend_dict, channel_id, video_id
 
 
+    # Remove do unsend_dict o primeiro iD do vídeo que seria processado
+    # Adiciona o ID do vídeo a lista de vídeos processados no banco de dados
+    # Remove o ID do vídeo a lista de vídeos "inWork" no banco de dados
+    # Retorna o unsend_dict sem o primeiro ID do vídeo que seria processado
     def skipFirstInWork(self, unsend_dict):
         unsend_dict, channel_id, video_id = self.getFirstUnsendDict(unsend_dict)
         
@@ -313,9 +345,9 @@ class YoutubeToTwitter():
                 self.saveInWork(unsend_dict_copy)
                 
                 if (is_spleep):
-                    self.sleep(60, 1)
+                    self.sleep(60, 1, 'Tweet enviado. Aguardando para enviar o próximo:')
                 else:
-                    self.sleep(5, 1)
+                    self.sleep(5, 1, 'Aguardando para enviar o próximo tweet:')
                 
             print()
         self.dropInWork()
