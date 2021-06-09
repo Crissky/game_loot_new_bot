@@ -352,7 +352,7 @@ class YoutubeToTwitter():
     # A partir de um unsend_dict
     # Retorna o unsend_dict sem o primeiro ID do vídeo que seria processado
     # Também retorna o ID do canal e o ID do vídeo que foi removido
-    def getFirstUnsendDict(self, unsend_dict):
+    def removeFirstUnsendDict(self, unsend_dict):
         for key, value in unsend_dict.items():
             if value:
                 channel_id = key
@@ -368,7 +368,7 @@ class YoutubeToTwitter():
     # Remove o ID do vídeo a lista de vídeos "inWork" no banco de dados
     # Retorna o unsend_dict sem o primeiro ID do vídeo que seria processado
     def skipFirstInWork(self, unsend_dict):
-        unsend_dict, channel_id, video_id = self.getFirstUnsendDict(unsend_dict)
+        unsend_dict, channel_id, video_id = self.removeFirstUnsendDict(unsend_dict)
         
         document = self.mongo_conn.getDocumentByID(channel_id)
         yt_channel_model = YoutubeChannelsModel(**document)
