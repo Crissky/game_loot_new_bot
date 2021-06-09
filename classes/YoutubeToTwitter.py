@@ -336,6 +336,9 @@ class YoutubeToTwitter():
         self.mongo_conn.dropCollection()
         self.mongo_conn.collection.insert_one(unsend_dict)
         self.mongo_conn.setCollection()
+        
+        if '_id' in unsend_dict:
+            unsend_dict.pop('_id')
     
 
     # EXCLUI A COLEÇÃO 'inWork'
@@ -350,9 +353,12 @@ class YoutubeToTwitter():
     # Retorna o unsend_dict sem o primeiro ID do vídeo que seria processado
     # Também retorna o ID do canal e o ID do vídeo que foi removido
     def getFirstUnsendDict(self, unsend_dict):
-        channel_ids, video_ids = unsend_dict.items()
-        channel_id = channel_ids[0]
-        video_id = video_ids.pop(0)
+        for key, value in unsend_dict.items():
+            if value:
+                channel_id = key
+                video_id = value.pop(0)
+                break
+
 
         return unsend_dict, channel_id, video_id
 
@@ -366,8 +372,8 @@ class YoutubeToTwitter():
         
         document = self.mongo_conn.getDocumentByID(channel_id)
         yt_channel_model = YoutubeChannelsModel(**document)
-        yt_channel_model.data['video_ids'].remove(video_id)
-        yt_channel_model.updateDocumentVideoIDs(self.mongo_conn)
+        yt_channel_model.addVideoID(video_id)
+        yt_channel_model.updateDocumentVideoIDs(self.mongo_conn.collection)
 
         self.saveInWork(unsend_dict)
 
