@@ -1,4 +1,5 @@
 from classes.YoutubeChannelsModel import YoutubeChannelsModel
+from classes.Color import Color
 
 # GERENCIA A POSTAGEM DE VÍDEOS NO TWITTER
 class YoutubeToTwitter():
@@ -237,7 +238,8 @@ class YoutubeToTwitter():
         message += f'\n\nLink: {video_url}'
         message += '\n\n#MarujoBot'
 
-        print(f'\tTítulo do Vídeo: {title}')
+        # print(f'\tTítulo do Vídeo: {title}')
+        Color(f'\tTítulo do Vídeo: {title}').bold().show()
 
         return message
         
@@ -256,16 +258,45 @@ class YoutubeToTwitter():
 
 
     # SALVA UM VÍDEO LOCALMENTE
-    def saveVideo(self, youtube):
-        video = youtube.streams.filter(mime_type='video/mp4',
-                               custom_filter_functions=[lambda s: (s.resolution == '720p') or (s.resolution == '480p')])\
-                               .first()
+    # def saveVideo(self, youtube):
+    #     video = youtube.streams.filter(mime_type='video/mp4',
+    #                            custom_filter_functions=[lambda s: (s.resolution == '720p') or (s.resolution == '480p')])\
+    #                            .first()
+    #     print('\tBaixando vídeo: ', video)
+    #     max_loop = 5
+    #     for i in range(max_loop):
+    #         try:
+    #             video.download(output_path='download', filename='video')
+    #             break
+    #         except Exception as e:
+    #             if i >= (max_loop - 1):
+    #                 raise e
+    #             print('\tsaveVideo(): Um erro ocorreu no download do vídeo.')
+    #             print(f'\tERRO:{e}')
+    #             self.sleep(10, 1, f'Aguardando para tentar novamente ({i+1})')
 
-        print('\tBaixando vídeo: ', video)
-        video.download(output_path='download', filename='video')
+    #     return 'download/video.mp4'
+    
+    def saveVideo(self, youtube):
+        resolutions = ['1080p', '720p', '480p']
+        max_loop = 5
+        for i in range(max_loop):
+            try:
+                resolution = resolutions[i % len(resolutions)]
+                video = youtube.streams.filter(mime_type='video/mp4',
+                                               custom_filter_functions=[lambda s: (s.resolution == resolution)])\
+                                               .first()
+                print('\tBaixando vídeo: ', video)
+                video.download(output_path='download', filename='video')
+                break
+            except Exception as e:
+                if i >= (max_loop - 1):
+                    raise e
+                print('\tsaveVideo(): Um erro ocorreu no download do vídeo.')
+                print(f'\tERRO:{e}')
+                self.sleep(10, 1, f'Aguardando para tentar novamente ({i+1})')
 
         return 'download/video.mp4'
-    
 
     # SALVA UM VÍDEO LOCALMENTE, MAS ELE E CORTADO EM 2 MINUTOS (PARTE CENTRAL DO VÍDEO)
     def saveCuttedVideo(self, youtube):
@@ -285,11 +316,20 @@ class YoutubeToTwitter():
     # CARREGA UMA MÍDIA (IMAGEM OU VÍDEO) NO TWITTER
     # RETORNA O ID DA MÍDIA CARREGADA
     def loadMedia(self, file_path):
-        with open(file_path, 'rb') as file:
-            if ('video.mp4' in file_path or 'cutted.mp4' in file_path):
-                response = self.twitter.upload_video(media=file, media_type='video/mp4', media_category='tweet_video', check_progress=True)
-            else:
-                response = self.twitter.upload_media(media=file)
+        max_loop = 5
+        for i in range(max_loop):
+            try:
+                with open(file_path, 'rb') as file:
+                    if ('video.mp4' in file_path or 'cutted.mp4' in file_path):
+                        response = self.twitter.upload_video(media=file, media_type='video/mp4', media_category='tweet_video', check_progress=True)
+                    else:
+                        response = self.twitter.upload_media(media=file)
+            except Exception as e:
+                if i >= (max_loop - 1):
+                    raise e
+                print('\tloadMedia(): Um erro ocorreu no upload da mídia.')
+                print(f'\tERRO:{e}')
+                self.sleep(10, 1, f'Aguardando para tentar novamente ({i+1})')
         
         media_id = [response['media_id']]
 
@@ -299,7 +339,7 @@ class YoutubeToTwitter():
     # ENVIA UM POST NO TWITTER
     # "media_id" É O ID DA MÍDIA CARREGADA PELO "loadMedia()"
     def updateStatus(self, message, media_id):
-        max_loop = 3
+        max_loop = 5
         for i in range(max_loop):
             try:
                 response = self.twitter.update_status(status=message, media_ids=media_id)
@@ -435,7 +475,7 @@ class YoutubeToTwitter():
                 self.saveInWork(unsend_dict_copy)
                 
                 if (is_spleep):
-                    self.sleep(60, 1, 'Tweet enviado. Aguardando para enviar o próximo:')
+                    self.sleep(10, 1, 'Tweet enviado. Aguardando para enviar o próximo:')
                 else:
                     self.sleep(5, 1, 'Aguardando para enviar o próximo tweet:')
                 
