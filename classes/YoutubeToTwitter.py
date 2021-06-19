@@ -1,5 +1,6 @@
 from classes.YoutubeChannelsModel import YoutubeChannelsModel
 from classes.Color import Color
+from classes.YoutubeFactory import youtube_factory
 
 # GERENCIA A POSTAGEM DE VÍDEOS NO TWITTER
 class YoutubeToTwitter():
@@ -117,9 +118,9 @@ class YoutubeToTwitter():
 
 
     # Envia um Vídeo para o Twitter usando a URL do vídeo no YouTube.
-    def sendSingleVideo(self, video_url):
+    def sendSingleVideo(self, video_url, youtube_choice='pytube'):
         print('sendSingleVideo()')
-        from pytube import YouTube
+        YouTube = youtube_factory(youtube_choice)
         
         youtube = YouTube(video_url)
         channel_id = youtube.channel_id
@@ -145,19 +146,30 @@ class YoutubeToTwitter():
     # AO FIM DA ESCOLHA, O ID DO VÍDEO É ADICIONADO NO BANCO DE DADOS NA LISTA DO SEU RESPECTIVO CANAL
     # CANAIS NA TABELA "restrictedChannels" SÓ TERÃO OS VÍDEOS ENVIADOS SE A PALAVRA TRAILER (E OUTRAS PALAVRAS CHAVE, VER "isRestrictedTrailer()") ESTIVER NO TÍTULO DO VÍDEO
     # "ignore_channel_list" É UMA LISTA DE NOMES DE CANAIS QUE NÃO TERÃO SEUS VÍDEOS ENVIADOS, MAS OS IDs DOS VÍDEOS SERÃO ADICIONADOS A LISTA DE PROCESSADOS NO BANCO DE DADOS
-    def sendTwitterChooser(self, channel_id, video_id, ignore_channel_list=[]):
-        from pytube import YouTube
+    def sendTwitterChooser(self, channel_id, video_id, ignore_channel_list=[], youtube_choice='pytube'):
         from datetime import datetime, timedelta
-
+        
+        is_age_error = False
+        YouTube = youtube_factory(youtube_choice)
         video_url = self.yt_handler.getVideoURL(video_id)
-        youtube = YouTube(video_url)
-        video_date = youtube.publish_date.date()
-        limit_date = datetime.today() - timedelta(days=2)
-        video_length = youtube.length
-        video_author = youtube.author
+        try:
+            youtube = YouTube(video_url)
+            video_date = youtube.publish_date.date()
+            limit_date = datetime.today() - timedelta(days=2)
+            video_length = youtube.length
+            video_author = youtube.author
+        except Exception as e:
+            error = '''ERROR: Sign in to confirm your age\nThis video may be inappropriate for some users.'''
+            is_age_error = e.args[0] == error
+            
+            if not is_age_error:
+                raise e
 
         is_sending = False
-        if (not self.isRestrictedTrailer(channel_id, youtube)):
+        if is_age_error:
+            Color(f'\tVídeo: {video_url} contém restrição de idade. Ele será SKIPADO.').bold().red().show()
+            self.saveRetrictAge(video_id)
+        elif (not self.isRestrictedTrailer(channel_id, youtube)):
             print(f'\t{video_author}: Vídeo {video_url} Canal está na lista de restritos e não possui a palavra "trailer" (ou possui uma palavra proibida) no título.')
         elif (video_author in ignore_channel_list):
             print(f'\t{video_author}: Vídeo {video_url} - {video_author} está na lista de ignorados. Vídeo não será enviado, mas será adicionado a lista de processados.')
@@ -354,6 +366,31 @@ class YoutubeToTwitter():
         print(f'\tLink do tweet: https://twitter.com/GameLootNews/status/{response["id"]}')
 
 
+    def saveRetrictAge(self, video_id):
+        self.mongo_conn.setCollection('RetrictAgeVideos')
+        self.mongo_conn.collection.update({'_id': 1},
+                                          {'$push': {'video_ids': video_id}})
+
+        self.mongo_conn.setCollection()
+
+
+    def removeRetrictAge(self, video_id):
+        self.mongo_conn.setCollection('RetrictAgeVideos')
+        self.mongo_conn.collection.update({'_id': 1},
+                                          {'$pull': {'video_ids': video_id}})
+
+        self.mongo_conn.setCollection()
+
+
+    def getRetrictAge(self):
+        self.mongo_conn.setCollection('RetrictAgeVideos')
+        retrict_age_unsend_dict = self.mongo_conn.collection.find({})
+        retrict_age_unsend_dict.pop('_id')
+        self.mongo_conn.setCollection()
+
+        return retrict_age_unsend_dict
+
+
     # RETORNA O DICIONÁRIO ONDE AS CHAVES SÃO OS IDs DOS CANAIS
     # E OS VALORES SÃO LISTAS COM DOS IDs DOS VÍDEOS QUE SERÃO USADOS PELO "sendTwitterChooser()"
     # ESSE DICIONÁRIO É USADO PARA QUE O "startSend()" POSSA CONTINUAR O
@@ -429,7 +466,7 @@ class YoutubeToTwitter():
         
         channel_id = document['_id']
         unsend_dict = self.getChannelUnsendVideos(document, size_list)
-        
+        print("unsend_dict:", unsend_dict)
         for video_id in unsend_dict[channel_id]:
             self.updateVideoIDs(channel_id, video_id)
     
@@ -447,7 +484,7 @@ class YoutubeToTwitter():
     # A CONSULTA É FEITA PRIMEIRAMENTE NO MONGODB NA COLEÇÃO 'inWork'
     # CASO NÃO EXISTA VIDEOS PARA SER ENVIADO NO 'inWork'
     # OS VÍDEOS SERÃO BUSCADOS NA API DO GOOGLE
-    def startSend(self, size_list=5, document=None, skip_first=False, ignore_channel_list=[]):
+    def startSend(self, size_list=5, document=None, skip_first=False, ignore_channel_list=[], youtube_choice='pytube'):
         from copy import deepcopy
 
         unsend_dict = self.getInWork()
@@ -470,7 +507,7 @@ class YoutubeToTwitter():
         for key, value in unsend_dict.items():
             print(key, value)
             for video_id in value:
-                is_spleep = self.sendTwitterChooser(key, video_id, ignore_channel_list=ignore_channel_list)
+                is_spleep = self.sendTwitterChooser(key, video_id, ignore_channel_list=ignore_channel_list, youtube_choice=youtube_choice)
                 unsend_dict_copy[key].remove(video_id)
                 self.saveInWork(unsend_dict_copy)
                 
