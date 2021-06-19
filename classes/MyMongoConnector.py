@@ -44,3 +44,17 @@ class MyMongoConnector():
     # EXCLUI A COLEÇÃO CONECTADA
     def dropCollection(self):
         return self.collection.drop()
+
+
+    def __call__(self, collection_name):
+        self.setCollection(collection_name)
+
+        return self
+    
+    
+    def __enter__(self):
+        return self.collection
+
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.setCollection()
