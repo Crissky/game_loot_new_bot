@@ -4,8 +4,19 @@ class FakePyTube:
 
         self.YDL = YoutubeDL
         ydl = self.YDL({'outtmpl': 'download/video.mp4'})
-        dic = ydl.extract_info(video_url, download=False)
 
+        try:
+            dic = ydl.extract_info(video_url, download=False)
+        except Exception as e:
+            premier_error = 'Premieres in'
+            is_premier_error = premier_error in e.args[0]
+            
+            if is_premier_error:
+                self.premier(video_url)
+                return None
+            else: 
+                raise e
+                        
         self.dic = dic
         self.video_url = video_url
         self.channel_id = dic['channel_id']
@@ -13,11 +24,27 @@ class FakePyTube:
         self.author = dic['channel']
         self.length = dic['duration']
         self.title = dic['title']
+        self.description = dic['description']
         self.str_date = dic['upload_date']
         self.streams = self
         self.__set_publish_date()
     
     
+    def premier(self, video_url):
+        from datetime import datetime
+
+        self.video_url = video_url
+        self.channel_id = ''
+        self.video_id = ''
+        self.author = ''
+        self.length = 0
+        self.title = ''
+        self.description = ''
+        self.str_date = datetime.today().strftime('%Y%m%d')
+        self.streams = self
+        self.__set_publish_date()
+
+
     def filter(self, *args, **kwargs):
         return self
     
