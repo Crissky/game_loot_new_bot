@@ -1,10 +1,12 @@
+from classes.FakePyTube import FakePyTube
+
 def youtube_factory(choice='pytube'):
     youtube = None
     choice = choice.lower()
 
-    if (choice == 'pytube'):
+    if (choice in ['pytube']):
         from pytube import YouTube
-        youtube = Youtube
+        youtube = YouTube
     elif (choice in ['youtube-dl', 'youtubedl', 'dl']):
         youtube = FakePyTube
     else:
