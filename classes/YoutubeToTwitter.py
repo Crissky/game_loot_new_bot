@@ -168,7 +168,7 @@ class YoutubeToTwitter():
         is_sending = False
         if is_age_error:
             Color(f'\tVídeo: {video_url} contém restrição de idade. Ele será SKIPADO.').bold().red().show()
-            self.saveRetrictAge(video_id)
+            self.saveRestrictedAge(video_id)
         elif (not self.isRestrictedTrailer(channel_id, youtube)):
             print(f'\t{video_author}: Vídeo {video_url} Canal está na lista de restritos e não possui a palavra "trailer" (ou possui uma palavra proibida) no título.')
         elif (video_author in ignore_channel_list):
@@ -366,24 +366,24 @@ class YoutubeToTwitter():
         print(f'\tLink do tweet: https://twitter.com/GameLootNews/status/{response["id"]}')
 
 
-    def saveRetrictAge(self, video_id):
-        self.mongo_conn.setCollection('RetrictAgeVideos')
+    def saveRestrictedAge(self, video_id):
+        self.mongo_conn.setCollection('restrictedAgeVideos')
         self.mongo_conn.collection.update({'_id': "1"},
                                           {'$push': {'video_ids': video_id}})
 
         self.mongo_conn.setCollection()
 
 
-    def removeRetrictAge(self, video_id):
-        self.mongo_conn.setCollection('RetrictAgeVideos')
+    def removeRestrictedAge(self, video_id):
+        self.mongo_conn.setCollection('restrictedAgeVideos')
         self.mongo_conn.collection.update({'_id': "1"},
                                           {'$pull': {'video_ids': video_id}})
 
         self.mongo_conn.setCollection()
 
 
-    def getRetrictAge(self):
-        self.mongo_conn.setCollection('RetrictAgeVideos')
+    def getRestrictedAge(self):
+        self.mongo_conn.setCollection('restrictedAgeVideos')
         retrict_age_unsend_dict = self.mongo_conn.collection.find({})
         retrict_age_unsend_dict.pop('_id')
         self.mongo_conn.setCollection()
