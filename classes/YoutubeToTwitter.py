@@ -368,7 +368,7 @@ class YoutubeToTwitter():
 
     def saveRetrictAge(self, video_id):
         self.mongo_conn.setCollection('RetrictAgeVideos')
-        self.mongo_conn.collection.update({'_id': 1},
+        self.mongo_conn.collection.update({'_id': "1"},
                                           {'$push': {'video_ids': video_id}})
 
         self.mongo_conn.setCollection()
@@ -376,7 +376,7 @@ class YoutubeToTwitter():
 
     def removeRetrictAge(self, video_id):
         self.mongo_conn.setCollection('RetrictAgeVideos')
-        self.mongo_conn.collection.update({'_id': 1},
+        self.mongo_conn.collection.update({'_id': "1"},
                                           {'$pull': {'video_ids': video_id}})
 
         self.mongo_conn.setCollection()
