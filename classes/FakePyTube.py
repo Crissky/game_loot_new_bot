@@ -9,7 +9,8 @@ class FakePyTube:
             dic = ydl.extract_info(video_url, download=False)
         except Exception as e:
             premier_error = 'Premieres in'
-            is_premier_error = premier_error in e.args[0]
+            premier_error2 =  'ERROR: This live event will begin in'
+            is_premier_error = premier_error in e.args[0] or premier_error2 in e.args[0]
             
             if is_premier_error:
                 self.premier(video_url)
