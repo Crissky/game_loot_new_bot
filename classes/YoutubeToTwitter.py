@@ -384,8 +384,8 @@ class YoutubeToTwitter():
 
     def getRestrictedAge(self):
         self.mongo_conn.setCollection('restrictedAgeVideos')
-        retrict_age_unsend_dict = self.mongo_conn.collection.find({})
-        retrict_age_unsend_dict.pop('_id')
+        retrict_age_unsend_dict = self.mongo_conn.collection.find({'_id': "1"}).next()
+        # retrict_age_unsend_dict.pop('_id')
         self.mongo_conn.setCollection()
 
         return retrict_age_unsend_dict
