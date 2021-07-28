@@ -62,7 +62,8 @@ class FakePyTube:
         if path.exists(output_path):
             shutil.rmtree(output_path)
         ydl = self.YDL({'outtmpl': f'{video_path}',
-                        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio',
+                        # 'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio',
+                        'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio',
                         'merge_output_format' : 'mp4'})
         ydl.download([self.video_url])
 
