@@ -131,6 +131,8 @@ class YoutubeToTwitter():
         if (video_length < 140):
             print(f'\t{video_author}: Vídeo {video_url} Enviando!')
             self.sendMedia(channel_id, video_id, video_author, video_url, youtube, 'video')
+        elif (video_length > 600):
+            print(f'\t{video_author}: Vídeo {video_url} é MUITO LONGO: {video_length} segundos. NÃO SERÁ ENVIADO!')
         else:
             print(f'\t{video_author}: Vídeo {video_url} é meio LONGO: {video_length} segundos. Enviando vídeo cortado.')
             self.sendMedia(channel_id, video_id, video_author, video_url, youtube, 'cutted')
@@ -155,7 +157,7 @@ class YoutubeToTwitter():
         try:
             youtube = YouTube(video_url)
             video_date = youtube.publish_date.date()
-            limit_date = datetime.today() - timedelta(days=2)
+            limit_date = datetime.today() - timedelta(days=3)
             video_length = youtube.length
             video_author = youtube.author
         except Exception as e:
