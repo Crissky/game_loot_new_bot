@@ -509,11 +509,11 @@ class YoutubeToTwitter():
         for key, value in unsend_dict.items():
             print(key, value)
             for video_id in value:
-                is_spleep = self.sendTwitterChooser(key, video_id, ignore_channel_list=ignore_channel_list, youtube_choice=youtube_choice)
+                is_sleep = self.sendTwitterChooser(key, video_id, ignore_channel_list=ignore_channel_list, youtube_choice=youtube_choice)
                 unsend_dict_copy[key].remove(video_id)
                 self.saveInWork(unsend_dict_copy)
                 
-                if (is_spleep):
+                if (is_sleep):
                     self.sleep(10, 1, 'Tweet enviado. Aguardando para enviar o próximo:')
                 else:
                     self.sleep(5, 1, 'Aguardando para enviar o próximo tweet:')
