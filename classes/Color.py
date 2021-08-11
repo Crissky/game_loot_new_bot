@@ -10,14 +10,16 @@ class Color:
     UNDERLINE = '\033[4m'
     END = '\033[0m'
     
-    def __new__(self, text):
-        Color.load_text(text)
+    def __new__(self, *texts, end=' '):
+        Color.load_text(*texts, end=end)
         Color.colors = ''
         
         return self
         
-    def load_text(text):
-        Color.text = text
+    def load_text(*texts, end=' '):
+        if not isinstance(end, str):
+            end = ' '
+        Color.text = end.join(map(str, texts))
         
         
     def __mount_string(attribute):
