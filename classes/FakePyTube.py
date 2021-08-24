@@ -12,9 +12,10 @@ class FakePyTube:
             dic = ydl.extract_info(video_url, download=False)
         except Exception as e:
             premier_errors = [
-                             'Premieres in',
-                             'ERROR: This live event will begin in',
-                             'ERROR: Este evento ao vivo começará em'
+                              'Premieres in',
+                              'ERROR: This live event will begin in',
+                              'ERROR: Este evento ao vivo começará em',
+                              'ERROR: Estreia em'
             ]
             is_premier_error = any(
                 [(text_error in e.args[0]) for text_error in premier_errors]
