@@ -3,6 +3,7 @@ from classes.Color import Color
 from classes.YoutubeFactory import youtube_factory
 
 # GERENCIA A POSTAGEM DE VÍDEOS NO TWITTER
+# GERENCIA A POSTAGEM DE VÍDEOS NO TWITTER
 class YoutubeToTwitter():
     def __init__(self, mongo_connector, youtube_handler, twitter_connector):
         self.mongo_conn = mongo_connector.setDatabase().setCollection()
@@ -152,6 +153,7 @@ class YoutubeToTwitter():
         from datetime import datetime, timedelta
         
         is_age_error = False
+        is_video_unavailable_error = False
         YouTube = youtube_factory(youtube_choice)
         video_url = self.yt_handler.getVideoURL(video_id)
         try:
@@ -161,16 +163,23 @@ class YoutubeToTwitter():
             video_length = youtube.length
             video_author = youtube.author
         except Exception as e:
-            error = '''ERROR: Sign in to confirm your age\nThis video may be inappropriate for some users.'''
-            is_age_error = e.args[0] == error
+            error_age = '''ERROR: Sign in to confirm your age\nThis video may be inappropriate for some users.'''
+            error_video_unavailable = [
+                '''ERROR: Video unavailable\nThis video has been removed by the uploader''',
+                '''ERROR: Vídeo indisponível\nEste vídeo foi removido pelo usuário que fez o envio'''
+            ]
             
-            if not is_age_error:
+            is_age_error = e.args[0] == error_age
+            is_video_unavailable_error = e.args[0] in error_video_unavailable
+            if not any([is_age_error, is_video_unavailable_error]):
                 raise e
 
         is_sending = False
         if is_age_error:
-            Color(f'\tVídeo: {video_url} contém restrição de idade. Ele será SKIPADO.').bold().red().show()
+            Color(f'\tVídeo: {video_url} contém restrição de idade. Ele será SKIPADO e armazenado na tabela "restrictedAgeVideos".').bold().red().show()
             self.saveRestrictedAge(video_id)
+        elif is_video_unavailable_error:
+            Color(f'\tVídeo: {video_url} foi removido pelo dono. Ele será SKIPADO e será adicionado a lista de processados.').bold().purple().show()
         elif (not self.isRestrictedTrailer(channel_id, youtube)):
             print(f'\t{video_author}: Vídeo {video_url} Canal está na lista de restritos e não possui a palavra "trailer" (ou possui uma palavra proibida) no título.')
         elif (video_author in ignore_channel_list):
