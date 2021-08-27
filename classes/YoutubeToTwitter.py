@@ -3,7 +3,6 @@ from classes.Color import Color
 from classes.YoutubeFactory import youtube_factory
 
 # GERENCIA A POSTAGEM DE VÍDEOS NO TWITTER
-# GERENCIA A POSTAGEM DE VÍDEOS NO TWITTER
 class YoutubeToTwitter():
     def __init__(self, mongo_connector, youtube_handler, twitter_connector):
         self.mongo_conn = mongo_connector.setDatabase().setCollection()
@@ -166,7 +165,8 @@ class YoutubeToTwitter():
             error_age = '''ERROR: Sign in to confirm your age\nThis video may be inappropriate for some users.'''
             error_video_unavailable = [
                 '''ERROR: Video unavailable\nThis video has been removed by the uploader''',
-                '''ERROR: Vídeo indisponível\nEste vídeo foi removido pelo usuário que fez o envio'''
+                '''ERROR: Vídeo indisponível\nEste vídeo foi removido pelo usuário que fez o envio''',
+                '''ERROR: Vídeo indisponível\nEste vídeo é privado.'''
             ]
             
             is_age_error = e.args[0] == error_age
