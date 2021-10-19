@@ -1,6 +1,7 @@
 class FakePyTube:
     def __init__(self, video_url):
-        from youtube_dl import YoutubeDL
+        #from youtube_dl import YoutubeDL
+        from yt_dlp import YoutubeDL
 
         self.YDL = YoutubeDL
         ydl = self.YDL({
@@ -15,7 +16,8 @@ class FakePyTube:
                               'Premieres in',
                               'ERROR: This live event will begin in',
                               'ERROR: Este evento ao vivo começará em',
-                              'ERROR: Estreia em'
+                              'Estreia em',
+                              'Este evento ao vivo começará em'
             ]
             is_premier_error = any(
                 [(text_error in e.args[0]) for text_error in premier_errors]
