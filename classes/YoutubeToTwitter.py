@@ -186,8 +186,8 @@ class YoutubeToTwitter():
             print(f'\t{video_author}: Vídeo {video_url} - {video_author} está na lista de ignorados. Vídeo não será enviado, mas será adicionado a lista de processados.')
         elif ( video_date < limit_date.date() ):
             print(f'\t{video_author}: Vídeo {video_url} é muito ANTIGO: {video_date}.')
-        elif ( video_length == 0 ):
-            print(f'\t{video_author}: Vídeo {video_url} é uma estreia (vídeo ou live). Tem "{video_length}" segundos de duração.')  # Vídeos com tamanho (length) zero são estreias (agendados)
+        elif ( video_length == None or video_length == 0 ):
+            Color(f'\t{video_author}: Vídeo {video_url} é uma estreia (vídeo ou live). Tem "{video_length}" segundos de duração.').bold().yellow().show()  # Vídeos com tamanho (length) zero são estreias (agendados)
             return is_sending       # Sai antes da função para não inserir o vídeo no banco de dados. Linha "self.updateVideoIDs(channel_id, video_id)"
         elif ( video_length >= 140 and video_length <= 300 ):
             print(f'\t{video_author}: Vídeo {video_url} é meio LONGO: {video_length} segundos. Enviando vídeo cortado.')
@@ -309,7 +309,8 @@ class YoutubeToTwitter():
                 video = youtube.streams.filter(mime_type='video/mp4',
                                                custom_filter_functions=[lambda s: (s.resolution == resolution)])\
                                                .first()
-                print('\tBaixando vídeo: ', video)
+                # print('\tBaixando vídeo: ', video)
+                Color('\tBaixando vídeo: ', video).bold().green().show()
                 video.download(output_path='download', filename='video')
                 break
             except Exception as e:
