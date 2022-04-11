@@ -1,3 +1,5 @@
+from datetime import datetime
+
 class FakePyTube:
     def __init__(self, video_url):
         #from youtube_dl import YoutubeDL
@@ -17,7 +19,12 @@ class FakePyTube:
                               'ERROR: This live event will begin in',
                               'ERROR: Este evento ao vivo começará em',
                               'Estreia em',
-                              'Este evento ao vivo começará em'
+                              'Este evento ao vivo começará em',
+                              'This live event will begin in',
+                              'Vídeo indisponível.',
+                              'A gravação dessa transmissão ao vivo'
+                              ' não está disponível.',
+
             ]
             is_premier_error = any(
                 [(text_error in e.args[0]) for text_error in premier_errors]
@@ -31,20 +38,18 @@ class FakePyTube:
                         
         self.dic = dic
         self.video_url = video_url
-        self.channel_id = dic['channel_id']
-        self.video_id = dic['display_id']
-        self.author = dic['channel']
-        self.length = dic['duration']
-        self.title = dic['title']
-        self.description = dic['description']
-        self.str_date = dic['upload_date']
+        self.channel_id = dic.get('channel_id', '')
+        self.video_id = dic.get('display_id', '')
+        self.author = dic.get('channel', '')
+        self.length = dic.get('duration', 0)
+        self.title = dic.get('title', '')
+        self.description = dic.get('description', '')
+        self.str_date = dic.get('upload_date', datetime.today().strftime('%Y%m%d'))
         self.streams = self
         self.__set_publish_date()
     
     
     def premier(self, video_url):
-        from datetime import datetime
-
         self.video_url = video_url
         self.channel_id = ''
         self.video_id = ''
