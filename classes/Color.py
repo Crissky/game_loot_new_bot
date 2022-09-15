@@ -9,68 +9,68 @@ class Color:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
     END = '\033[0m'
-    
+
     def __new__(self, *texts, end=' '):
         Color.load_text(*texts, end=end)
         Color.colors = ''
-        
+
         return self
-        
+
     def load_text(*texts, end=' '):
         if not isinstance(end, str):
             end = ' '
         Color.text = end.join(map(str, texts))
-        
-        
+
+
     def __mount_string(attribute):
         Color.colors += attribute
         return Color
-    
-    
+
+
     def purple():
         return Color.__mount_string(Color.PURPLE)
-    
-    
+
+
     def cyan():
         return Color.__mount_string(Color.CYAN)
-    
-    
+
+
     def dark_cyan():
         return Color.__mount_string(Color.DARKCYAN)
-    
-    
+
+
     def blue():
         return Color.__mount_string(Color.BLUE)
-    
-    
+
+
     def green():
         return Color.__mount_string(Color.GREEN)
-    
-    
+
+
     def yellow():
         return Color.__mount_string(Color.YELLOW)
-    
-    
+
+
     def red():
         return Color.__mount_string(Color.RED)
-    
-    
+
+
     def underline():
         return Color.__mount_string(Color.UNDERLINE)
-    
-    
+
+
     def bold():
         return Color.__mount_string(Color.BOLD)
-    
-    
+
+
     def clear_colors():
         Color.colors = ''
         return Color
-    
-    
+
+
     def build():
         return Color.colors + Color.text + Color.END
-    
-    
+
+
     def show(end='\n'):
         print(Color.build(), end=end)

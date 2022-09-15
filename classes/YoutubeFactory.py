@@ -11,5 +11,5 @@ def youtube_factory(choice='pytube'):
         youtube = FakePyTube
     else:
         raise f'ERRO: Nenhuma classe youtube foi escolhida para "{choice}"'
-    
+
     return youtube

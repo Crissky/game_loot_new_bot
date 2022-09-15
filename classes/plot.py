@@ -3,12 +3,12 @@ def plotResult(my_dict, title='', order=False):
     import matplotlib.pyplot as plt
     from matplotlib import cm
     plt.rcParams["figure.figsize"] = (20,10)
-    
+
     max_value = max(my_dict.values()) / 100
     my_dict_items = list(my_dict.items())
     if order:
         my_dict_items = sorted(my_dict_items, key=lambda item: item[1])
-    
+
     pn_i = np.linspace(0, 1, len(my_dict_items))        # Range de float para a função cm.jet selecionar as cores
     for i in range(len(my_dict_items)):
         x = my_dict_items[i][0]
@@ -21,7 +21,7 @@ def plotResult(my_dict, title='', order=False):
 
     plt.xticks(rotation=90)
     plt.title(title)
-    
+
     plt.show()
 
 

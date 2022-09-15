@@ -15,27 +15,25 @@ class FakePyTube:
             dic = ydl.extract_info(video_url, download=False)
         except Exception as e:
             premier_errors = [
-                              'Premieres in',
-                              'ERROR: This live event will begin in',
-                              'ERROR: Este evento ao vivo começará em',
-                              'Estreia em',
-                              'Este evento ao vivo começará em',
-                              'This live event will begin in',
-                              'Vídeo indisponível.',
-                              'A gravação dessa transmissão ao vivo'
-                              ' não está disponível.',
-
+                'Premieres in',
+                'ERROR: This live event will begin in',
+                'ERROR: Este evento ao vivo começará em',
+                'Estreia em',
+                'Este evento ao vivo começará em',
+                'This live event will begin in',
+                'Vídeo indisponível.',
+                'A gravação dessa transmissão ao vivo não está disponível.',
             ]
             is_premier_error = any(
                 [(text_error in e.args[0]) for text_error in premier_errors]
             )
-            
+
             if is_premier_error:
                 self.premier(video_url)
                 return None
             else: 
                 raise e
-                        
+
         self.dic = dic
         self.video_url = video_url
         self.channel_id = dic.get('channel_id', '')
@@ -47,8 +45,8 @@ class FakePyTube:
         self.str_date = dic.get('upload_date', datetime.today().strftime('%Y%m%d'))
         self.streams = self
         self.__set_publish_date()
-    
-    
+
+
     def premier(self, video_url):
         self.video_url = video_url
         self.channel_id = ''
@@ -64,11 +62,11 @@ class FakePyTube:
 
     def filter(self, *args, **kwargs):
         return self
-    
+
 
     def first(self, *args, **kwargs):
         return self
-    
+
 
     def download(self, output_path='download', filename='video'):
         from os import path, remove, listdir
@@ -86,13 +84,13 @@ class FakePyTube:
         })
         ydl.download([self.video_url])
 
-    
+
     def __set_publish_date(self):
         from datetime import datetime
         template_date = '%Y%m%d'
         self.publish_date = datetime.strptime(self.str_date, template_date)
 
-    
+
     def __repr__(self):
         return f'''video_url: {self.video_url},
         title: {self.title},
