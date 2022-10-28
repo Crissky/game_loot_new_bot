@@ -1,9 +1,11 @@
 # GERENCIA A POSTAGEM DE VÍDEOS NO TWITTER
 class YoutubeToTwitter():
-    def __init__(self, mongo_connector, youtube_handler, twitter_connector):
+    def __init__(self, mongo_connector, youtube_handler, twitter_connector,
+                 twitter_to_telegram):
         self.mongo_conn = mongo_connector.setDatabase().setCollection()
         self.yt_handler = youtube_handler
         self.twitter = twitter_connector
+        self.telegram = twitter_to_telegram
 
 
     # RETORNA UMA LISTA COM OS ELEMENTOS DA "list1" QUE NÃO EXISTEM NA "list2"
@@ -18,22 +20,28 @@ class YoutubeToTwitter():
         tabs = '\t' * indent_size
         for remaining in range(time, 0, -1):
             stdout.write("\r")
-            stdout.write(f"{tabs}{include_text} retomará em {remaining} segundos...")
+            stdout.write(
+                f"{tabs}{include_text} retomará em {remaining} segundos..."
+            )
             stdout.flush()
             sleep(1)
 
         stdout.write(f"\r{tabs}{include_text} Pronto!\n")
 
+    
     # RETORNA UM DICIONÁRIO ONDE AS CHAVES SÃO OS IDs DOS CANAIS
-    # E O VALOR É UMA LISTA COM OS IDs DOS VÍDEOS ÚLTIMOS QUE AINDA NÃO FORAM ANALISADOS (QUE ESTÃO ARMAZENADOS DO BANCO DE DADOS)
+    # E O VALOR É UMA LISTA COM OS IDs DOS VÍDEOS ÚLTIMOS QUE AINDA NÃO FORAM
+    # ANALISADOS (QUE ESTÃO ARMAZENADOS DO BANCO DE DADOS)
     # "size_list" DEFINE QUANTOS ELEMENTOS SERÃO PESQUISADOS NA API DO GOOGLES
-    # (A API PODE RETORNAR VÍDEOS OS PLAYLISTS, ONDE AS PLAYLISTS SERÃO DESCARTADAS — AFETANDO O TOTAL DE VÍDEOS RETORNADOS)
+    # (A API PODE RETORNAR VÍDEOS OS PLAYLISTS, ONDE AS PLAYLISTS SERÃO
+    # DESCARTADAS — AFETANDO O TOTAL DE VÍDEOS RETORNADOS)
     def getAllUnsendVideos(self, size_list=5):
         dict_unsend = dict()
         for document in self.mongo_conn.getAllDocuments():
             print(f"{document['name']} ({document['_id']})", end=': ')
 
-            channel_unsend_vids = self.getChannelUnsendVideos(document, size_list)
+            channel_unsend_vids = self.getChannelUnsendVideos(document,
+                                                              size_list)
             dict_unsend.update(channel_unsend_vids)
             not_matches_list = channel_unsend_vids[document['_id']]
 
@@ -42,18 +50,26 @@ class YoutubeToTwitter():
         return dict_unsend
 
 
-    # RETORNA UM DICIONÁRIO COM O ID DO CANAIS E OS IDs DOS VÍDEOS ÚLTIMOS QUE AINDA NÃO FORAM ANALISADOS
+    # RETORNA UM DICIONÁRIO COM O ID DO CANAIS E OS IDs DOS VÍDEOS ÚLTIMOS QUE
+    # AINDA NÃO FORAM ANALISADOS.
     # MAIS DETALHES EM "getAllUnsendVideos()"
     def getChannelUnsendVideos(self, document, size_list=5):
         self.yt_handler.loadListVideos(document['_id'], size_list)
         video_id_list = self.yt_handler.getVideoIDList()
-        not_matches_list = self.filterNotMatches( video_id_list, document['video_ids'] )
+        not_matches_list = self.filterNotMatches(
+            video_id_list, document['video_ids']
+        )
 
         return {document['_id']: not_matches_list}
 
 
     # Atualiza Banco de Dados Mongo com os Canais que estão no TXT
-    def updateYoutubeChannelsCollection(self, youtube_channel_ids_url='https://raw.githubusercontent.com/Crissky/game_loot_news_bot/main/youtube_channel_ids.txt'):
+    def updateYoutubeChannelsCollection(
+        self, youtube_channel_ids_url=(
+            'https://raw.githubusercontent.com/Crissky/game_loot_news_bot/main/'
+            'youtube_channel_ids.txt'
+        )
+    ):
         import requests
         from pytube import YouTube
         response = requests.get(youtube_channel_ids_url)
@@ -64,7 +80,10 @@ class YoutubeToTwitter():
         for channel_id in youtube_channel_ids:
             document = self.mongo_conn.getDocumentByID(channel_id)
             if document:
-                print(f"Canal {document['name']} já existe no banco de dados com o ID: {document['_id']}.")
+                print(
+                    f'Canal {document["name"]} já existe no banco de dados com '
+                    f'o ID: {document["_id"]}.'
+                )
                 continue
 
             self.yt_handler.loadListVideos(channel_id, 50)
@@ -73,16 +92,22 @@ class YoutubeToTwitter():
                 youtube = YouTube(video_url)
                 channel_name = youtube.author
 
-                yt_channel_model = YoutubeChannelsModel(channel_id, channel_name)
+                yt_channel_model = YoutubeChannelsModel(channel_id,
+                                                        channel_name)
                 self.mongo_conn.collection.insert_one(yt_channel_model.data)
-                print(f'O canal {channel_name}, de id: {channel_id}, foi inserido no banco de dados.')
+                print(
+                    f'O canal {channel_name}, de id: {channel_id}, foi inserido '
+                    f'no banco de dados.'
+                    )
             except Exception as e:
-                print('O canal de id:', channel_id, "Não pode ser atualizado com a URL:", video_url)
+                print('O canal de id:', channel_id,
+                      'Não pode ser atualizado com a URL:', video_url)
                 print('Motivo:', e)
 
 
     # Retorna uma lista com os IDs dos canais restritos
-    # Canais restritos são aqueles que produzem outros conteúdos além dos trailers de jogos
+    # Canais restritos são aqueles que produzem outros conteúdos
+    # além dos trailers de jogos
     # Exemplo: IGN
     def getRestrictedChannelIDs(self):
         self.mongo_conn.setCollection('restrictedChannels')
@@ -92,6 +117,7 @@ class YoutubeToTwitter():
         channel_ids = document['channels']
 
         return channel_ids
+
 
     # Retorna True caso o canal não esteja na lista de canais restritos
     # ou se ele estiver na lista, mas contém a palavra trailer título do vídeo
@@ -126,25 +152,46 @@ class YoutubeToTwitter():
 
         if (video_length < 140):
             print(f'\t{video_author}: Vídeo {video_url} Enviando!')
-            self.sendMedia(channel_id, video_id, video_author, video_url, youtube, 'video')
+            self.sendMedia(
+                channel_id, video_id, video_author, video_url, youtube, 'video'
+            )
         elif (video_length > 600):
-            print(f'\t{video_author}: Vídeo {video_url} é MUITO LONGO: {video_length} segundos. NÃO SERÁ ENVIADO!')
+            print(
+                f'\t{video_author}: Vídeo {video_url} é MUITO LONGO: '
+                f'{video_length} segundos. NÃO SERÁ ENVIADO!'
+            )
         else:
-            print(f'\t{video_author}: Vídeo {video_url} é meio LONGO: {video_length} segundos. Enviando vídeo cortado.')
-            self.sendMedia(channel_id, video_id, video_author, video_url, youtube, 'cutted')
+            print(
+                f'\t{video_author}: Vídeo {video_url} é meio LONGO: '
+                f'{video_length} segundos. Enviando vídeo cortado.'
+            )
+            self.sendMedia(
+                channel_id, video_id, video_author, video_url, youtube, 'cutted'
+            )
 
         self.updateVideoIDs(channel_id, video_id)
 
 
     # ESCOLHE SE O VÍDEO SERÁ ENVIADO PARA O TWITTER
     # VÍDEO MAIS ANTIGO QUE O (HOJE MENOS O "limit_date") NÃO SERÁ ENVIADO
-    # VÍDEO COM MINUTAGEM MAIOR QUE ("video_length" > 300) TAMBÉM NÃO SERÁ ENVIADO
-    # VÍDEO COM MINUTAGEM ENTRE ( "video_length" >= 140 and "video_length" <= 300 ) SERÁ ENVIADO COM CORTE DE 2 MINUTOS FEITO NO MEIO DO VÍDEO
+    # VÍDEO COM MINUTAGEM MAIOR QUE ("video_length" > 300) TAMBÉM NÃO SERÁ
+    # ENVIADO
+    # VÍDEO COM MINUTAGEM ENTRE
+    # ( "video_length" >= 140 and "video_length" <= 300 ) SERÁ ENVIADO COM
+    # CORTE DE 2 MINUTOS FEITO NO MEIO DO VÍDEO
     # VÍDEO COM MENOS DE 2 MINUTOS E 20 SEGUDOS SERÁ ENVIADO COMPLETO
-    # AO FIM DA ESCOLHA, O ID DO VÍDEO É ADICIONADO NO BANCO DE DADOS NA LISTA DO SEU RESPECTIVO CANAL
-    # CANAIS NA TABELA "restrictedChannels" SÓ TERÃO OS VÍDEOS ENVIADOS SE A PALAVRA TRAILER (E OUTRAS PALAVRAS CHAVE, VER "isRestrictedTrailer()") ESTIVER NO TÍTULO DO VÍDEO
-    # "ignore_channel_list" É UMA LISTA DE NOMES DE CANAIS QUE NÃO TERÃO SEUS VÍDEOS ENVIADOS, MAS OS IDs DOS VÍDEOS SERÃO ADICIONADOS A LISTA DE PROCESSADOS NO BANCO DE DADOS
-    def sendTwitterChooser(self, channel_id, video_id, ignore_channel_list=[], youtube_choice='pytube'):
+    # AO FIM DA ESCOLHA, O ID DO VÍDEO É ADICIONADO NO BANCO DE DADOS NA LISTA
+    # DO SEU RESPECTIVO CANAL
+    # CANAIS NA TABELA "restrictedChannels" SÓ TERÃO OS VÍDEOS ENVIADOS SE A
+    # PALAVRA TRAILER (E OUTRAS PALAVRAS CHAVE, VER "isRestrictedTrailer()")
+    # ESTIVER NO TÍTULO DO VÍDEO
+    # "ignore_channel_list" É UMA LISTA DE NOMES DE CANAIS QUE NÃO TERÃO SEUS
+    # VÍDEOS ENVIADOS, MAS OS IDs DOS VÍDEOS SERÃO ADICIONADOS A
+    # LISTA DE PROCESSADOS NO BANCO DE DADOS
+    def sendTwitterChooser(
+        self, channel_id, video_id, ignore_channel_list=[],
+        youtube_choice='pytube'
+    ):
         from datetime import datetime, timedelta
 
         is_age_error = False
@@ -158,11 +205,16 @@ class YoutubeToTwitter():
             video_length = youtube.length
             video_author = youtube.author
         except Exception as e:
-            error_age = '''ERROR: Sign in to confirm your age\nThis video may be inappropriate for some users.'''
+            error_age = (
+                'ERROR: Sign in to confirm your age\nThis video may be '
+                'inappropriate for some users.'
+            )
             error_video_unavailable = [
-                '''ERROR: Video unavailable\nThis video has been removed by the uploader''',
-                '''ERROR: Vídeo indisponível\nEste vídeo foi removido pelo usuário que fez o envio''',
-                '''ERROR: Vídeo indisponível\nEste vídeo é privado.'''
+                'ERROR: Video unavailable\nThis video has been removed by the '
+                'uploader',
+                'ERROR: Vídeo indisponível\nEste vídeo foi removido pelo '
+                'usuário que fez o envio',
+                'ERROR: Vídeo indisponível\nEste vídeo é privado.'
             ]
 
             is_age_error = e.args[0] == error_age
@@ -172,28 +224,61 @@ class YoutubeToTwitter():
 
         is_sending = False
         if is_age_error:
-            Color(f'\tVídeo: {video_url} contém restrição de idade. Ele será SKIPADO e armazenado na tabela "restrictedAgeVideos".').bold().red().show()
+            Color(
+                f'\tVídeo: {video_url} contém restrição de idade. Ele será '
+                f'SKIPADO e armazenado na tabela "restrictedAgeVideos".'
+            ).bold().red().show()
             self.saveRestrictedAge(video_id)
         elif is_video_unavailable_error:
-            Color(f'\tVídeo: {video_url} foi removido pelo dono. Ele será SKIPADO e será adicionado a lista de processados.').bold().purple().show()
+            Color(
+                f'\tVídeo: {video_url} foi removido pelo dono. Ele será SKIPADO'
+                f' e será adicionado a lista de processados.'
+            ).bold().purple().show()
         elif (not self.isRestrictedTrailer(channel_id, youtube)):
-            print(f'\t{video_author}: Vídeo {video_url} Canal está na lista de restritos e não possui a palavra "trailer" (ou possui uma palavra proibida) no título.')
+            print(
+                f'\t{video_author}: Vídeo {video_url} Canal está na lista de '
+                f'restritos e não possui a palavra "trailer" (ou possui uma '
+                f'palavra proibida) no título.'
+            )
         elif (video_author in ignore_channel_list):
-            print(f'\t{video_author}: Vídeo {video_url} - {video_author} está na lista de ignorados. Vídeo não será enviado, mas será adicionado a lista de processados.')
+            print(
+                f'\t{video_author}: Vídeo {video_url} - {video_author} está na '
+                f'lista de ignorados. Vídeo não será enviado, mas será '
+                f'adicionado a lista de processados.'
+            )
         elif ( video_date < limit_date.date() ):
-            print(f'\t{video_author}: Vídeo {video_url} é muito ANTIGO: {video_date}.')
+            print(
+                f'\t{video_author}: Vídeo {video_url} é muito ANTIGO: '
+                f'{video_date}.'
+            )
         elif ( video_length == None or video_length == 0 ):
-            Color(f'\t{video_author}: Vídeo {video_url} é uma estreia (vídeo ou live). Tem "{video_length}" segundos de duração.').bold().yellow().show()  # Vídeos com tamanho (length) zero são estreias (agendados)
-            return is_sending       # Sai antes da função para não inserir o vídeo no banco de dados. Linha "self.updateVideoIDs(channel_id, video_id)"
+            # Vídeos com tamanho (length) zero são estreias (agendados)
+            Color(
+                f'\t{video_author}: Vídeo {video_url} é uma estreia '
+                f'(vídeo ou live). Tem "{video_length}" segundos de duração.'
+            ).bold().yellow().show()
+            # Sai antes da função para não inserir o vídeo no banco de dados.
+            # Linha "self.updateVideoIDs(channel_id, video_id)"
+            return is_sending
         elif ( video_length >= 140 and video_length <= 300 ):
-            print(f'\t{video_author}: Vídeo {video_url} é meio LONGO: {video_length} segundos. Enviando vídeo cortado.')
-            self.sendMedia(channel_id, video_id, video_author, video_url, youtube, 'cutted')
+            print(
+                f'\t{video_author}: Vídeo {video_url} é meio LONGO: '
+                f'{video_length} segundos. Enviando vídeo cortado.'
+            )
+            self.sendMedia(
+                channel_id, video_id, video_author, video_url, youtube, 'cutted'
+            )
             is_sending = True
         elif ( video_length > 300 ):
-            print(f'\t{video_author}: Vídeo {video_url} é muito LONGO: {video_length} segundos.')
+            print(
+                f'\t{video_author}: Vídeo {video_url} é muito LONGO: '
+                f'{video_length} segundos.'
+            )
         else:
             print(f'\t{video_author}: Vídeo {video_url} Enviando!')
-            self.sendMedia(channel_id, video_id, video_author, video_url, youtube, 'video')
+            self.sendMedia(
+                channel_id, video_id, video_author, video_url, youtube, 'video'
+            )
             is_sending = True
 
         self.updateVideoIDs(channel_id, video_id)
@@ -218,7 +303,11 @@ class YoutubeToTwitter():
 
         self.sleep(10, 1, 'Esperando Twitter processar mídia:')
 
-        self.updateStatus(message, media_id)
+        twitter_post_link = self.updateStatus(message, media_id)
+        telegram_message = self.getTelegramMessage(
+            video_author, youtube, twitter_post_link
+        )
+        self.telegram.send_message(telegram_message)
 
 
     # ENVIA UM VÍDEO PARA O TWITTER
@@ -229,12 +318,21 @@ class YoutubeToTwitter():
 
         self.sleep(10, 1, 'Esperando Twitter processar mídia:')
 
-        self.updateStatus(message, media_id)
+        twitter_post_link = self.updateStatus(message, media_id)
+        telegram_message = self.getTelegramMessage(
+            video_author, youtube, twitter_post_link
+        )
+        self.telegram.send_message(telegram_message)
 
 
-    # SALVA LOCALMENTE UMA MÍDIA (THUMBNAIL OU VÍDEO) DO YOUTUBE COM BASE NO "media_type" PASSADO
-    # SE O "media_type" FOR DIFERENTE DE  "image" OU "video", O VÍDEO SERÁ CORTADO PARA 2 MINUTOS
-    def sendMedia(self, channel_id, video_id, video_author, video_url, youtube, media_type='cutted'):
+    # SALVA LOCALMENTE UMA MÍDIA (THUMBNAIL OU VÍDEO) DO YOUTUBE COM BASE NO
+    # "media_type" PASSADO
+    # SE O "media_type" FOR DIFERENTE DE  "image" OU "video", O VÍDEO SERÁ
+    # CORTADO PARA 2 MINUTOS
+    def sendMedia(
+        self, channel_id, video_id, video_author, video_url, youtube,
+        media_type='cutted'
+    ):
         if (media_type.lower() == 'video'):
             media_path = self.saveVideo(youtube)
         elif (media_type.lower() == 'image'):
@@ -247,7 +345,11 @@ class YoutubeToTwitter():
 
         self.sleep(10, 1, 'Esperando Twitter processar mídia:')
 
-        self.updateStatus(message, media_id)
+        twitter_post_link = self.updateStatus(message, media_id)
+        telegram_message = self.getTelegramMessage(
+            video_author, youtube, twitter_post_link
+        )
+        self.telegram.send_message(telegram_message)
 
 
     # Retorna a mensagem usada no "updateStatus()"
@@ -264,6 +366,16 @@ class YoutubeToTwitter():
         Color(f'\tTítulo do Vídeo: {title}').bold().show()
 
         return message
+
+
+    # Retorna a mensagem usada no "self.telegram.send_message()"
+    def getTelegramMessage(self, video_author, youtube, twitter_post_link):
+        return (
+            f'Vídeo {video_author}:'
+            f'\n{youtube.title}.'
+            f'\n\n{twitter_post_link}'
+            f'\n\n&#35MarujoBot'
+        )
 
 
     # SALVA UMA IMAGEM LOCALMENTE
@@ -305,9 +417,12 @@ class YoutubeToTwitter():
         for i in range(max_loop):
             try:
                 resolution = resolutions[i % len(resolutions)]
-                video = youtube.streams.filter(mime_type='video/mp4',
-                                               custom_filter_functions=[lambda s: (s.resolution == resolution)])\
-                                               .first()
+                video = youtube.streams.filter(
+                    mime_type='video/mp4',
+                    custom_filter_functions=[
+                        lambda s: (s.resolution == resolution)
+                    ]
+                ).first()
                 # print('\tBaixando vídeo: ', video)
                 Color('\tBaixando vídeo: ', video).bold().green().show()
                 video.download(output_path='download', filename='video')
@@ -321,7 +436,8 @@ class YoutubeToTwitter():
 
         return 'download/video.mp4'
 
-    # SALVA UM VÍDEO LOCALMENTE, MAS ELE E CORTADO EM 2 MINUTOS (PARTE CENTRAL DO VÍDEO)
+    # SALVA UM VÍDEO LOCALMENTE, MAS ELE E CORTADO EM
+    # 2 MINUTOS (PARTE CENTRAL DO VÍDEO)
     def saveCuttedVideo(self, youtube):
         print('\tCortando vídeo...')
         from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
@@ -331,7 +447,9 @@ class YoutubeToTwitter():
         start_time = mid_time - 60
         end_time = mid_time + 60
 
-        ffmpeg_extract_subclip(video_path, start_time, end_time, targetname=cutted_video_path)
+        ffmpeg_extract_subclip(
+            video_path, start_time, end_time, targetname=cutted_video_path
+        )
 
         return cutted_video_path
 
@@ -344,7 +462,10 @@ class YoutubeToTwitter():
             try:
                 with open(file_path, 'rb') as file:
                     if ('video.mp4' in file_path or 'cutted.mp4' in file_path):
-                        response = self.twitter.upload_video(media=file, media_type='video/mp4', media_category='tweet_video', check_progress=True)
+                        response = self.twitter.upload_video(
+                            media=file, media_type='video/mp4',
+                            media_category='tweet_video', check_progress=True
+                        )
                     else:
                         response = self.twitter.upload_media(media=file)
             except Exception as e:
@@ -365,7 +486,8 @@ class YoutubeToTwitter():
         max_loop = 5
         for i in range(max_loop):
             try:
-                response = self.twitter.update_status(status=message, media_ids=media_id)
+                response = self.twitter.update_status(status=message,
+                                                      media_ids=media_id)
                 break
             except Exception as e:
                 if i >= (max_loop - 1):
@@ -374,9 +496,16 @@ class YoutubeToTwitter():
                 print(f'\tERRO:{e}')
                 self.sleep(10, 1, f'Aguardando para tentar novamente ({i+1})')
 
-        print(f'\tLink do tweet: https://twitter.com/GameLootNews/status/{response["id"]}')
+        print(
+            f'\tLink do tweet: https://twitter.com/GameLootNews/status/'
+            f'{response["id"]}'
+        )
+
+        return f'https://vxtwitter.com/GameLootNews/status/{response["id"]}'
 
 
+    # SALVA NO MONGO VIDEO_ID DE VÍDEO RESTRITO POR IDADE
+    # PARA ENIVAR POSTERIORMENTE
     def saveRestrictedAge(self, video_id):
         self.mongo_conn.setCollection('restrictedAgeVideos')
         self.mongo_conn.collection.update({'_id': "1"},
@@ -384,7 +513,9 @@ class YoutubeToTwitter():
 
         self.mongo_conn.setCollection()
 
-
+    
+    # REMOVE DO MONGO VIDEO_ID DE VÍDEO RESTRITO POR IDADE
+    # QUE PROVAVELMENTE JÁ FOI ENVIADO
     def removeRestrictedAge(self, video_id):
         self.mongo_conn.setCollection('restrictedAgeVideos')
         self.mongo_conn.collection.update({'_id': "1"},
@@ -393,9 +524,13 @@ class YoutubeToTwitter():
         self.mongo_conn.setCollection()
 
 
+
+    # PEGA DO MONGO VIDEO_ID DE VÍDEO RESTRITO POR IDADE
     def getRestrictedAge(self):
         self.mongo_conn.setCollection('restrictedAgeVideos')
-        retrict_age_unsend_dict = self.mongo_conn.collection.find({'_id': "1"}).next()
+        retrict_age_unsend_dict = self.mongo_conn.collection.find(
+            {'_id': "1"}
+        ).next()
         # retrict_age_unsend_dict.pop('_id')
         self.mongo_conn.setCollection()
 
@@ -403,9 +538,11 @@ class YoutubeToTwitter():
 
 
     # RETORNA O DICIONÁRIO ONDE AS CHAVES SÃO OS IDs DOS CANAIS
-    # E OS VALORES SÃO LISTAS COM DOS IDs DOS VÍDEOS QUE SERÃO USADOS PELO "sendTwitterChooser()"
+    # E OS VALORES SÃO LISTAS COM DOS IDs DOS VÍDEOS QUE SERÃO USADOS
+    # PELO "sendTwitterChooser()"
     # ESSE DICIONÁRIO É USADO PARA QUE O "startSend()" POSSA CONTINUAR O
-    # ENVIO DOS VÍDEOS CASO ACONTEÇA ALGUM ERRO DURANTE A EXECUÇÃO — ISSO ECONOMIZA CONSULTAS NA API DO GOOGLE
+    # ENVIO DOS VÍDEOS CASO ACONTEÇA ALGUM ERRO DURANTE A EXECUÇÃO — ISSO
+    # ECONOMIZA CONSULTAS NA API DO GOOGLE
     def getInWork(self):
         self.mongo_conn.setCollection('inWork')
         unsend_dict = self.mongo_conn.collection.find_one()
@@ -456,7 +593,9 @@ class YoutubeToTwitter():
     # Remove o ID do vídeo a lista de vídeos "inWork" no banco de dados
     # Retorna o unsend_dict sem o primeiro ID do vídeo que seria processado
     def skipFirstInWork(self, unsend_dict):
-        unsend_dict, channel_id, video_id = self.removeFirstUnsendDict(unsend_dict)
+        unsend_dict, channel_id, video_id = self.removeFirstUnsendDict(
+            unsend_dict
+        )
 
         document = self.mongo_conn.getDocumentByID(channel_id)
         yt_channel_model = YoutubeChannelsModel(**document)
@@ -468,7 +607,8 @@ class YoutubeToTwitter():
         return unsend_dict
 
 
-    # Adiciona os IDs dos vídeos não processados de um canal a lista de processados, sem enviar os vídeos para o Twitter
+    # Adiciona os IDs dos vídeos não processados de um canal a lista de
+    # processados, sem enviar os vídeos para o Twitter
     def skipChannelSend(self, channel_name, size_list=5):
         document = self.mongo_conn.getDocumentByName(channel_name)
         if (not document):
@@ -482,7 +622,8 @@ class YoutubeToTwitter():
             self.updateVideoIDs(channel_id, video_id)
 
 
-    # Adiciona os IDs dos vídeos não processados de uma LISTA de canais a lista de processados, sem enviar os vídeos para o Twitter
+    # Adiciona os IDs dos vídeos não processados de uma LISTA de canais a
+    # lista de processados, sem enviar os vídeos para o Twitter
     def skipChannelsSend(self, channel_name_list, size_list=5):
         if type(channel_name_list) == list:
             for channel_name in channel_name_list:
@@ -495,7 +636,10 @@ class YoutubeToTwitter():
     # A CONSULTA É FEITA PRIMEIRAMENTE NO MONGODB NA COLEÇÃO 'inWork'
     # CASO NÃO EXISTA VIDEOS PARA SER ENVIADO NO 'inWork'
     # OS VÍDEOS SERÃO BUSCADOS NA API DO GOOGLE
-    def startSend(self, size_list=5, document=None, skip_first=False, ignore_channel_list=[], youtube_choice='pytube'):
+    def startSend(
+        self, size_list=5, document=None, skip_first=False,
+        ignore_channel_list=[], youtube_choice='pytube'
+    ):
         from copy import deepcopy
 
         unsend_dict = self.getInWork()
@@ -510,7 +654,8 @@ class YoutubeToTwitter():
             print('startSend() -> getAllUnsendVideos() — VÍDEOS NOVOS:')
             unsend_dict = self.getAllUnsendVideos(size_list)
 
-        print('\nTotal de vídeos para processar:', sum([len(x) for x in unsend_dict.values()]))
+        print('\nTotal de vídeos para processar:',
+              sum([len(x) for x in unsend_dict.values()]))
         unsend_dict_copy = deepcopy(unsend_dict)
         self.saveInWork(unsend_dict_copy)
 
@@ -521,15 +666,24 @@ class YoutubeToTwitter():
             print(key, value)
             for video_id in value:
                 order_current_video += 1
-                Color(f'Vídeo {order_current_video} de {total_videos}').bold().dark_cyan().show()
-                is_sleep = self.sendTwitterChooser(key, video_id, ignore_channel_list=ignore_channel_list, youtube_choice=youtube_choice)
+                Color(
+                    f'Vídeo {order_current_video} de {total_videos}'
+                ).bold().dark_cyan().show()
+                is_sleep = self.sendTwitterChooser(
+                    key, video_id, ignore_channel_list=ignore_channel_list,
+                    youtube_choice=youtube_choice
+                )
                 unsend_dict_copy[key].remove(video_id)
                 self.saveInWork(unsend_dict_copy)
 
                 if (is_sleep):
-                    self.sleep(1, 1, 'Tweet enviado. Aguardando para enviar o próximo:')
+                    self.sleep(
+                        1, 1,'Tweet enviado. Aguardando para enviar o próximo:'
+                    )
                 else:
-                    self.sleep(1, 1, 'Aguardando para enviar o próximo tweet:')
+                    self.sleep(
+                        1, 1, 'Aguardando para enviar o próximo tweet:'
+                    )
 
             print()
         self.dropInWork()
