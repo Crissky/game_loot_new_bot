@@ -1,5 +1,6 @@
 import requests
 
+from urllib.parse import quote_plus
 
 class TwitterToTelegram:
 
@@ -17,6 +18,7 @@ class TwitterToTelegram:
             chat_id=self.__channel_id,
             message=message
         )
+        url = quote_plus(url)
         response = requests.get(url).json()
         if verbose:
             print(response)
