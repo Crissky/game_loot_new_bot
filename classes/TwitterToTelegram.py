@@ -13,12 +13,12 @@ class TwitterToTelegram:
         )
 
     def send_message(self, message, verbose=False):
+        message = quote_plus(message)
         url = self.__url.format(
             token=self.__token,
             chat_id=self.__channel_id,
             message=message
         )
-        url = quote_plus(url)
         response = requests.get(url).json()
         if verbose:
             print(response)
