@@ -6,7 +6,10 @@ class TwitterToTelegram:
     def __init__(self, token, channel_id):
         self.__token = token
         self.__channel_id = channel_id
-        self.__url = 'https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={message}'
+        self.__url = (
+            'https://api.telegram.org/bot{token}/'
+            'sendMessage?chat_id={chat_id}&text={message}'
+        )
 
     def send_message(self, message, verbose=False):
         url = self.__url.format(
