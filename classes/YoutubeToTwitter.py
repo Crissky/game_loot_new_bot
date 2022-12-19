@@ -1,3 +1,7 @@
+from copy import deepcopy
+from datetime import datetime
+from pytz import timezone
+
 # GERENCIA A POSTAGEM DE VÍDEOS NO TWITTER
 class YoutubeToTwitter():
     def __init__(self, mongo_connector, youtube_handler, twitter_connector,
@@ -374,7 +378,7 @@ class YoutubeToTwitter():
             f'Vídeo {video_author}:'
             f'\n{youtube.title}.'
             f'\n\n{twitter_post_link}'
-            f'\n\n&#35MarujoBot'
+            f'\n\n#MarujoBot'
         )
 
 
@@ -640,8 +644,6 @@ class YoutubeToTwitter():
         self, size_list=5, document=None, skip_first=False,
         ignore_channel_list=[], youtube_choice='pytube'
     ):
-        from copy import deepcopy
-
         unsend_dict = self.getInWork()
         if unsend_dict:
             print(f"Continuando Trabalho Inacabado...\n{unsend_dict}")
@@ -662,12 +664,17 @@ class YoutubeToTwitter():
         print('\nstartSend() -> sendTwitterChooser()')
         total_videos = sum([len(videos) for videos in unsend_dict.values()])
         order_current_video = 0
+        brasil_timezone = timezone('America/Sao_Paulo')
         for key, value in unsend_dict.items():
             print(key, value)
             for video_id in value:
                 order_current_video += 1
+                str_datetime_now = datetime.now(
+                    tz=brasil_timezone
+                ).strftime('%d/%m/%Y %H:%M:%S')
                 Color(
                     f'Vídeo {order_current_video} de {total_videos}'
+                    f' - {str_datetime_now}'
                 ).bold().dark_cyan().show()
                 is_sleep = self.sendTwitterChooser(
                     key, video_id, ignore_channel_list=ignore_channel_list,
